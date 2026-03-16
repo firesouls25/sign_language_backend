@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import base64
-from typing import Optional, Dict
+from typing import Dict
 import logging
 from ml.processor import get_sign_recognizer
 

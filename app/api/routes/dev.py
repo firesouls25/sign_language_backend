@@ -1,8 +1,6 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from app.config import settings
-from app.services.ai_service import get_ai_service
-import json
 
 router = APIRouter(prefix="/dev", tags=["dev"])
 

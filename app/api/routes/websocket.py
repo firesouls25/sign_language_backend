@@ -1,9 +1,6 @@
 from fastapi import WebSocket, WebSocketDisconnect
-from typing import Dict, Set
+from typing import Dict
 import json
-import base64
-import numpy as np
-import cv2
 from app.services.ai_service import get_ai_service
 
 
