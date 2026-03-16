@@ -1055,6 +1055,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -1071,6 +1072,7 @@ requires-dist = [
     { name = "google-cloud-storage", specifier = ">=2.14.0" },
     { name = "gtts", specifier = ">=2.5.0" },
     { name = "httpx", specifier = ">=0.26.0" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.26.0" },
     { name = "itsdangerous", specifier = ">=2.1.0" },
     { name = "mediapipe", specifier = ">=0.10.32" },
     { name = "numpy", specifier = ">=1.26.0" },
