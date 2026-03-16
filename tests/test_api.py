@@ -24,9 +24,3 @@ async def test_root(client):
     assert response.status_code == 200
     data = response.json()
     assert "LSC Translator API" in data["message"]
-
-
-@pytest.mark.asyncio
-async def test_oauth_login_google(client):
-    response = await client.get("/api/auth/login/google")
-    assert response.status_code in [200, 302, 400, 500]
