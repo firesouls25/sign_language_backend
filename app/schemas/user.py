@@ -7,6 +7,7 @@ class UserBase(BaseModel):
     email: EmailStr
     username: str
     full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -20,6 +21,8 @@ class UserLogin(BaseModel):
 
 class UserResponse(UserBase):
     id: str
+    is_oauth: bool
+    oauth_provider: Optional[str] = None
     translation_count: int
     created_at: datetime
 
@@ -35,3 +38,8 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     user_id: Optional[str] = None
+
+
+class OAuthProviders(BaseModel):
+    google: bool = False
+    apple: bool = False

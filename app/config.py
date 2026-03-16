@@ -5,18 +5,29 @@ from functools import lru_cache
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/lsc_db"
     REDIS_URL: str = "redis://localhost:6379"
-    
+
     SECRET_KEY: str = "change-this-to-a-random-secret-key-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    
+
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
     GCS_BUCKET_NAME: str = "lsc-videos-bucket"
-    
+
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    APPLE_CLIENT_ID: str = ""
+    APPLE_CLIENT_SECRET: str = ""
+    APPLE_TEAM_ID: str = ""
+    APPLE_KEY_ID: str = ""
+    APPLE_PRIVATE_KEY: str = ""
+
+    FRONTEND_URL: str = "http://localhost:5173"
+    BACKEND_URL: str = "http://localhost:8000"
+
     APP_ENV: str = "development"
     DEBUG: bool = True
-    ENABLE_DEV_ROUTES: bool = True  # Dev-only features (testing UI)
+    ENABLE_DEV_ROUTES: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 

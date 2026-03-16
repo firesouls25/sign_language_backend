@@ -1,5 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from app.database import init_db
 from app.config import settings
 from app.api.routes import auth, translation
@@ -11,6 +12,11 @@ app = FastAPI(
     description="Colombian Sign Language Translation Backend",
     version="1.0.0",
     debug=settings.DEBUG,
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
 )
 
 app.add_middleware(
@@ -32,6 +38,7 @@ app.include_router(translation.router)
 
 if settings.ENABLE_DEV_ROUTES:
     from app.api.routes import dev
+
     app.include_router(dev.router)
 
 
