@@ -97,7 +97,9 @@ async def oauth_callback(
                 detail="Failed to create or find user",
             )
 
-        return await oauth_service.create_tokens_for_user(user)
+        tokens = await oauth_service.create_tokens_for_user(user)
+
+        return tokens
 
     except HTTPException:
         raise
@@ -106,6 +108,161 @@ async def oauth_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Authentication failed: {str(e)}",
         )
+
+
+@router.get("/callback-deep-link/{provider}")
+async def oauth_callback_deep_link(
+    provider: str,
+    code: Optional[str] = None,
+    error: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """OAuth callback that redirects to app via deep link"""
+    if error:
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>OAuth Error</title></head>
+        <body>
+            <h1>Error: {error}</h1>
+            <p>You can close this window.</p>
+        </body>
+        </html>
+        """
+
+    if not code:
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head><title>OAuth Error</title></head>
+        <body>
+            <h1>Missing authorization code</h1>
+            <p>You can close this window.</p>
+        </body>
+        </html>
+        """
+
+    redirect_uri = oauth_service.get_oauth_redirect_url(provider)
+
+    try:
+        user = None
+        if provider == "google":
+            token = await oauth_service.oauth.google.fetch_access_token(
+                code=code, redirect_uri=redirect_uri
+            )
+            userinfo = await oauth_service.get_google_userinfo(token["access_token"])
+
+            user = await oauth_service.find_or_create_oauth_user(
+                db=db,
+                provider="google",
+                provider_id=userinfo["sub"],
+                email=userinfo["email"],
+                full_name=userinfo.get("name"),
+                avatar_url=userinfo.get("picture"),
+            )
+
+        elif provider == "apple":
+            token = await oauth_service.oauth.apple.fetch_access_token(
+                code=code, redirect_uri=redirect_uri
+            )
+            userinfo = await oauth_service.get_apple_userinfo(token["access_token"])
+
+            user = await oauth_service.find_or_create_oauth_user(
+                db=db,
+                provider="apple",
+                provider_id=userinfo["sub"],
+                email=userinfo["email"],
+            )
+
+        if not user:
+            return """
+            <!DOCTYPE html>
+            <html>
+            <head><title>OAuth Error</title></head>
+            <body>
+                <h1>Failed to create or find user</h1>
+                <p>You can close this window.</p>
+            </body>
+            </html>
+            """
+
+        tokens = await oauth_service.create_tokens_for_user(user)
+
+        deep_link_url = (
+            f"lsc://oauth/callback?"
+            f"access_token={tokens['access_token']}&"
+            f"refresh_token={tokens['refresh_token']}&"
+            f"token_type={tokens['token_type']}"
+        )
+
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Login Successful</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                }}
+                .container {{
+                    text-align: center;
+                    padding: 40px;
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 16px;
+                    backdrop-filter: blur(10px);
+                }}
+                h1 {{ margin-bottom: 20px; }}
+                p {{ margin-bottom: 30px; opacity: 0.9; }}
+                .button {{
+                    background: white;
+                    color: #667eea;
+                    border: none;
+                    padding: 16px 32px;
+                    border-radius: 8px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    text-decoration: none;
+                    display: inline-block;
+                }}
+                .button:hover {{ background: #f0f0f0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>✅ Login Successful!</h1>
+                <p>Click the button below to continue to the app.</p>
+                <a href="{deep_link_url}" class="button">Open SignText App</a>
+            </div>
+            <script>
+                // Auto-redirect after 2 seconds if supported
+                setTimeout(function() {{
+                    window.location.href = "{deep_link_url}";
+                }}, 2000);
+            </script>
+        </body>
+        </html>
+        """
+
+    except Exception as e:
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>OAuth Error</title></head>
+        <body>
+            <h1>Error: {str(e)}</h1>
+            <p>You can close this window.</p>
+        </body>
+        </html>
+        """
 
 
 @router.get("/callback-webview/{provider}")
