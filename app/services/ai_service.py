@@ -4,6 +4,7 @@ import base64
 from typing import Dict
 import logging
 from ml.processor import get_sign_recognizer
+from app.services.tts_service import get_tts_service
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,9 @@ logger = logging.getLogger(__name__)
 class AIService:
     def __init__(self):
         self.recognizer = get_sign_recognizer()
-        logger.info("AIService initialized")
+        self.tts = get_tts_service()
+        self.last_audio_text = ""
+        logger.info("AIService initialized with TTS")
 
     async def process_frame(self, frame_data: str) -> Dict:
         try:
@@ -27,12 +30,22 @@ class AIService:
                 }
             
             result = self.recognizer.process_frame(img)
+            text = result.get("text", "")
             
+            audio_data = None
+            # Only generate audio if text is not empty and different from last one
+            if text and text != self.last_audio_text:
+                audio_data = self.tts.text_to_speech(text)
+                self.last_audio_text = text
+            elif not text:
+                self.last_audio_text = ""
+
             return {
                 "type": "translation",
-                "text": result["text"],
-                "confidence": result["confidence"],
-                "has_keypoints": result["keypoints"] is not None
+                "text": text,
+                "confidence": result.get("confidence", 0.0),
+                "has_keypoints": result.get("keypoints") is not None,
+                "audio": audio_data
             }
             
         except Exception as e:
