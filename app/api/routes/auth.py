@@ -3,7 +3,14 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from app.database import get_db
-from app.schemas.user import UserCreate, UserLogin, Token, UserResponse
+from app.schemas.user import (
+    UserCreate,
+    UserLogin,
+    Token,
+    UserResponse,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+)
 from app.services.auth_service import AuthService
 from app.services import oauth_service
 
@@ -318,3 +325,26 @@ async def logout(
 
     await AuthService.logout(access_token, refresh_token)
     return {"message": "Successfully logged out"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)
+):
+    success = await AuthService.forgot_password(db, request.email)
+    # Always return success message for security (don't reveal if email exists)
+    return {
+        "message": "If the email is registered, you will receive a reset link shortly."
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
+):
+    success = await AuthService.reset_password(db, request.token, request.new_password)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
+        )
+    return {"message": "Password successfully reset"}

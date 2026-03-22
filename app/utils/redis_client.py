@@ -39,6 +39,19 @@ class RedisClient:
             return False
         return await self._client.exists(f"blacklist:{token_jti}") > 0
 
+    async def set_value(self, key: str, value: str, expire_seconds: int):
+        if self._client:
+            await self._client.set(key, value, ex=expire_seconds)
+
+    async def get_value(self, key: str) -> Optional[str]:
+        if not self._client:
+            return None
+        return await self._client.get(key)
+
+    async def delete_value(self, key: str):
+        if self._client:
+            await self._client.delete(key)
+
 
 redis_client = RedisClient()
 

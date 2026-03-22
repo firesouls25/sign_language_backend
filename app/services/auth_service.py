@@ -2,8 +2,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, Token
-from app.utils.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_token
+from app.utils.security import (
+    verify_password,
+    get_password_hash,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+)
 from app.utils.redis_client import redis_client
+from app.services.email_service import email_service
 from app.database import DB_AVAILABLE
 from typing import Optional
 import uuid
@@ -110,3 +117,46 @@ class AuthService:
                     remaining = int(exp - datetime.datetime.utcnow().timestamp())
                     if remaining > 0:
                         await redis_client.blacklist_token(jti, remaining)
+
+    @staticmethod
+    async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+        if not DB_AVAILABLE:
+            return None
+        result = await db.execute(select(User).where(User.email == email))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def forgot_password(db: AsyncSession, email: str) -> bool:
+        user = await AuthService.get_user_by_email(db, email)
+        if not user:
+            # For security, we might want to return True anyway, but for a dev flow, False is fine
+            return False
+
+        # Generate random token
+        import secrets
+        token = secrets.token_urlsafe(32)
+
+        # Store in Redis (1 hour expiration)
+        await redis_client.set_value(f"reset:{token}", user.id, 3600)
+
+        # Send email
+        await email_service.send_reset_password_email(user.email, token)
+        return True
+
+    @staticmethod
+    async def reset_password(db: AsyncSession, token: str, new_password: str) -> bool:
+        user_id = await redis_client.get_value(f"reset:{token}")
+        if not user_id:
+            return False
+
+        user = await AuthService.get_user_by_id(db, user_id)
+        if not user:
+            return False
+
+        # Update password
+        user.hashed_password = get_password_hash(new_password)
+        await db.commit()
+
+        # Delete token from Redis
+        await redis_client.delete_value(f"reset:{token}")
+        return True

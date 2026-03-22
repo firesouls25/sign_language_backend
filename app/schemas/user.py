@@ -43,3 +43,12 @@ class TokenData(BaseModel):
 class OAuthProviders(BaseModel):
     google: bool = False
     apple: bool = False
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
