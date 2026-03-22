@@ -1,5 +1,6 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from app.database import init_db
 from app.config import settings
@@ -21,6 +22,12 @@ app = FastAPI(
 
 # Add Structured Logging Middleware
 app.add_middleware(LoggingMiddleware)
+
+# Static files for local storage
+import os
+from app.config import settings
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     SessionMiddleware,
