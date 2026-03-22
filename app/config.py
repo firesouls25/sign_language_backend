@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
     GCS_BUCKET_NAME: str = "lsc-videos-bucket"
+    UPLOAD_DIR: str = "uploads"
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""

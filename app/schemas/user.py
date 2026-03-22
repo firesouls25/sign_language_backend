@@ -22,6 +22,7 @@ class UserLogin(BaseModel):
 class UserResponse(UserBase):
     id: str
     is_oauth: bool
+    is_verified: bool
     oauth_provider: Optional[str] = None
     translation_count: int
     created_at: datetime
@@ -43,3 +44,22 @@ class TokenData(BaseModel):
 class OAuthProviders(BaseModel):
     google: bool = False
     apple: bool = False
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str

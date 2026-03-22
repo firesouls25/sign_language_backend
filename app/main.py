@@ -1,11 +1,17 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from app.database import init_db
 from app.config import settings
 from app.api.routes import auth, translation
 from app.api.routes.websocket import websocket_endpoint
+from app.utils.redis_client import redis_client
+from app.utils.logging_config import setup_logging, LoggingMiddleware
 import uuid
+
+# Initialize logging
+setup_logging()
 
 app = FastAPI(
     title="LSC Translator API",
@@ -13,6 +19,15 @@ app = FastAPI(
     version="1.0.0",
     debug=settings.DEBUG,
 )
+
+# Add Structured Logging Middleware
+app.add_middleware(LoggingMiddleware)
+
+# Static files for local storage
+import os
+from app.config import settings
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     SessionMiddleware,
@@ -31,6 +46,12 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     await init_db()
+    await redis_client.connect()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await redis_client.close()
 
 
 app.include_router(auth.router)

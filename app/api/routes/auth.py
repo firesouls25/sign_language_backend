@@ -3,7 +3,16 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from app.database import get_db
-from app.schemas.user import UserCreate, UserLogin, Token, UserResponse
+from app.schemas.user import (
+    UserCreate,
+    UserLogin,
+    Token,
+    UserResponse,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    UserUpdate,
+    ChangePasswordRequest,
+)
 from app.services.auth_service import AuthService
 from app.services import oauth_service
 
@@ -269,7 +278,7 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    new_access_token = AuthService.refresh_access_token(credentials.credentials)
+    new_access_token = await AuthService.refresh_access_token(credentials.credentials)
     if not new_access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
@@ -285,7 +294,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = AuthService.get_user_from_token(credentials.credentials)
+    user_id = await AuthService.get_user_from_token(credentials.credentials)
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
@@ -297,3 +306,116 @@ async def get_current_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     return user
+
+
+@router.post("/logout")
+async def logout(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    # We might want to pass the refresh token too if the client sends it
+    # For now, let's try to get it from the body if possible, or just blacklist the access token
+    access_token = credentials.credentials
+    
+    # Optional: try to get refresh token from request body
+    refresh_token = None
+    try:
+        body = await request.json()
+        refresh_token = body.get("refresh_token")
+    except:
+        pass
+
+    await AuthService.logout(access_token, refresh_token)
+    return {"message": "Successfully logged out"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)
+):
+    success = await AuthService.forgot_password(db, request.email)
+    # Always return success message for security (don't reveal if email exists)
+    return {
+        "message": "If the email is registered, you will receive a reset link shortly."
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
+):
+    success = await AuthService.reset_password(db, request.token, request.new_password)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
+        )
+    return {"message": "Password successfully reset"}
+
+
+@router.get("/verify-email")
+async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
+    success = await AuthService.verify_email(db, token)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
+        )
+    return {"message": "Email successfully verified"}
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_profile(
+    update_data: UserUpdate,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = await AuthService.get_user_from_token(credentials.credentials)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    
+    user = await AuthService.update_user(db, user_id, update_data)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return user
+
+
+@router.post("/me/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = await AuthService.get_user_from_token(credentials.credentials)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    
+    success = await AuthService.change_password(db, user_id, data)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid old password"
+        )
+    return {"message": "Password successfully changed"}
+
+
+@router.delete("/me")
+async def delete_account(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = await AuthService.get_user_from_token(credentials.credentials)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    
+    success = await AuthService.delete_user(db, user_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return {"message": "Account successfully deleted"}
