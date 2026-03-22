@@ -22,6 +22,7 @@ class UserLogin(BaseModel):
 class UserResponse(UserBase):
     id: str
     is_oauth: bool
+    is_verified: bool
     oauth_provider: Optional[str] = None
     translation_count: int
     created_at: datetime

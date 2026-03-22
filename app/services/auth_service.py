@@ -43,6 +43,15 @@ class AuthService:
         db.add(db_user)
         await db.commit()
         await db.refresh(db_user)
+        
+        # Email Verification Flow
+        import secrets
+        token = secrets.token_urlsafe(32)
+        # Store in Redis (24 hours)
+        await redis_client.set_value(f"verify:{token}", db_user.id, 86400)
+        # Send verification email
+        await email_service.send_verification_email(db_user.email, token)
+        
         return db_user
 
     @staticmethod
@@ -159,4 +168,22 @@ class AuthService:
 
         # Delete token from Redis
         await redis_client.delete_value(f"reset:{token}")
+        return True
+
+    @staticmethod
+    async def verify_email(db: AsyncSession, token: str) -> bool:
+        user_id = await redis_client.get_value(f"verify:{token}")
+        if not user_id:
+            return False
+
+        user = await AuthService.get_user_by_id(db, user_id)
+        if not user:
+            return False
+
+        # Update verification status
+        user.is_verified = True
+        await db.commit()
+
+        # Delete token from Redis
+        await redis_client.delete_value(f"verify:{token}")
         return True

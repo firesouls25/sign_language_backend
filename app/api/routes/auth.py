@@ -348,3 +348,13 @@ async def reset_password(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
         )
     return {"message": "Password successfully reset"}
+
+
+@router.get("/verify-email")
+async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
+    success = await AuthService.verify_email(db, token)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
+        )
+    return {"message": "Email successfully verified"}

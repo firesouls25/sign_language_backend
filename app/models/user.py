@@ -16,6 +16,7 @@ class User(Base):
     is_oauth = Column(Boolean, default=False)
     oauth_provider = Column(String, nullable=True)
     oauth_provider_id = Column(String, nullable=True)
+    is_verified = Column(Boolean, default=False)
     translation_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
