@@ -3,10 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.translation import Translation
-from app.schemas.translation import TranslationResponse
+from app.schemas.translation import TranslationResponse, TranslationHistoryResponse
 from app.services.auth_service import AuthService
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List
+from typing import List, Optional
+from datetime import datetime
+from sqlalchemy import func
 
 router = APIRouter(prefix="/api/translation", tags=["translation"])
 security = HTTPBearer()
@@ -45,19 +47,45 @@ async def get_translation(
     return translation
 
 
-@router.get("/", response_model=List[TranslationResponse])
+@router.get("/", response_model=TranslationHistoryResponse)
 async def get_translation_history(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
-    limit: int = 20,
-    offset: int = 0
+    page: int = 1,
+    size: int = 20,
+    search: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
 ):
+    # Base query
+    query = select(Translation).where(Translation.user_id == user_id)
+
+    # Filters
+    if search:
+        query = query.where(Translation.text_result.ilike(f"%{search}%"))
+    if start_date:
+        query = query.where(Translation.created_at >= start_date)
+    if end_date:
+        query = query.where(Translation.created_at <= end_date)
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+
+    # Pagination
+    offset = (page - 1) * size
     result = await db.execute(
-        select(Translation)
-        .where(Translation.user_id == user_id)
-        .order_by(Translation.created_at.desc())
-        .limit(limit)
-        .offset(offset)
+        query.order_by(Translation.created_at.desc()).limit(size).offset(offset)
     )
     translations = result.scalars().all()
-    return translations
+
+    pages = (total + size - 1) // size if size > 0 else 0
+
+    return {
+        "items": translations,
+        "total": total,
+        "page": page,
+        "size": size,
+        "pages": pages,
+    }

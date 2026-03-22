@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -28,3 +28,11 @@ class TranslationWebSocket(BaseModel):
     data: Optional[dict] = None
     message: Optional[str] = None
     code: Optional[str] = None
+
+
+class TranslationHistoryResponse(BaseModel):
+    items: List[TranslationResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
