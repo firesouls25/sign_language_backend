@@ -20,6 +20,7 @@ from app.services.email_service import email_service
 from app.database import DB_AVAILABLE
 from typing import Optional
 import uuid
+from datetime import datetime, timezone
 
 
 class AuthService:
@@ -116,8 +117,7 @@ class AuthService:
             exp = payload.get("exp")
             if jti and exp:
                 # Calculate remaining time
-                import datetime
-                remaining = int(exp - datetime.datetime.utcnow().timestamp())
+                remaining = int(exp - datetime.now(timezone.utc).timestamp())
                 if remaining > 0:
                     await redis_client.blacklist_token(jti, remaining)
 
@@ -128,8 +128,7 @@ class AuthService:
                 jti = payload.get("jti")
                 exp = payload.get("exp")
                 if jti and exp:
-                    import datetime
-                    remaining = int(exp - datetime.datetime.utcnow().timestamp())
+                    remaining = int(exp - datetime.now(timezone.utc).timestamp())
                     if remaining > 0:
                         await redis_client.blacklist_token(jti, remaining)
 
