@@ -3,6 +3,7 @@ from sqlalchemy import select
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, Token
 from app.utils.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_token
+from app.utils.redis_client import redis_client
 from app.database import DB_AVAILABLE
 from typing import Optional
 import uuid
@@ -65,15 +66,47 @@ class AuthService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    def get_user_from_token(token: str) -> Optional[str]:
+    async def get_user_from_token(token: str) -> Optional[str]:
         payload = decode_token(token)
         if payload and payload.get("type") == "access":
+            jti = payload.get("jti")
+            if jti and await redis_client.is_token_blacklisted(jti):
+                return None
             return payload.get("sub")
         return None
 
     @staticmethod
-    def refresh_access_token(refresh_token: str) -> Optional[str]:
+    async def refresh_access_token(refresh_token: str) -> Optional[str]:
         payload = decode_token(refresh_token)
         if payload and payload.get("type") == "refresh":
+            jti = payload.get("jti")
+            if jti and await redis_client.is_token_blacklisted(jti):
+                return None
             return create_access_token(data={"sub": payload.get("sub")})
         return None
+
+    @staticmethod
+    async def logout(access_token: str, refresh_token: Optional[str] = None):
+        # Blacklist access token
+        payload = decode_token(access_token)
+        if payload:
+            jti = payload.get("jti")
+            exp = payload.get("exp")
+            if jti and exp:
+                # Calculate remaining time
+                import datetime
+                remaining = int(exp - datetime.datetime.utcnow().timestamp())
+                if remaining > 0:
+                    await redis_client.blacklist_token(jti, remaining)
+
+        # Blacklist refresh token if provided
+        if refresh_token:
+            payload = decode_token(refresh_token)
+            if payload:
+                jti = payload.get("jti")
+                exp = payload.get("exp")
+                if jti and exp:
+                    import datetime
+                    remaining = int(exp - datetime.datetime.utcnow().timestamp())
+                    if remaining > 0:
+                        await redis_client.blacklist_token(jti, remaining)

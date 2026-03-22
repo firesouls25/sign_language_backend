@@ -269,7 +269,7 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    new_access_token = AuthService.refresh_access_token(credentials.credentials)
+    new_access_token = await AuthService.refresh_access_token(credentials.credentials)
     if not new_access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
@@ -285,7 +285,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = AuthService.get_user_from_token(credentials.credentials)
+    user_id = await AuthService.get_user_from_token(credentials.credentials)
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
@@ -297,3 +297,24 @@ async def get_current_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     return user
+
+
+@router.post("/logout")
+async def logout(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    # We might want to pass the refresh token too if the client sends it
+    # For now, let's try to get it from the body if possible, or just blacklist the access token
+    access_token = credentials.credentials
+    
+    # Optional: try to get refresh token from request body
+    refresh_token = None
+    try:
+        body = await request.json()
+        refresh_token = body.get("refresh_token")
+    except:
+        pass
+
+    await AuthService.logout(access_token, refresh_token)
+    return {"message": "Successfully logged out"}

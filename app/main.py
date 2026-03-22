@@ -5,6 +5,7 @@ from app.database import init_db
 from app.config import settings
 from app.api.routes import auth, translation
 from app.api.routes.websocket import websocket_endpoint
+from app.utils.redis_client import redis_client
 import uuid
 
 app = FastAPI(
@@ -31,6 +32,12 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     await init_db()
+    await redis_client.connect()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await redis_client.close()
 
 
 app.include_router(auth.router)
