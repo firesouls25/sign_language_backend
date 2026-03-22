@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -604,4 +605,122 @@ async def google_token(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Google authentication failed: {str(e)}",
+        )
+
+
+@router.get("/oauth/callback-page")
+async def oauth_callback(
+    code: str,
+    state: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """OAuth callback that exchanges code for tokens and redirects to app"""
+    try:
+        redirect_uri = oauth_service.get_oauth_redirect_url("google")
+
+        token = await oauth_service.oauth.google.fetch_access_token(
+            code=code,
+            redirect_uri=redirect_uri,
+        )
+
+        id_token = token.get("id_token")
+        if not id_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No ID token received",
+            )
+
+        user = await oauth_service.verify_google_token_and_get_user(
+            db=db,
+            id_token=id_token,
+        )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to verify Google token",
+            )
+
+        app_tokens = await oauth_service.create_tokens_for_user(user)
+
+        deep_link_url = (
+            f"lsc://oauth/callback?"
+            f"access_token={app_tokens['access_token']}&"
+            f"refresh_token={app_tokens['refresh_token']}&"
+            f"token_type={app_tokens['token_type']}"
+        )
+
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Login Exitoso</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                    }}
+                    .container {{
+                        text-align: center;
+                        padding: 40px;
+                        background: rgba(255,255,255,0.1);
+                        border-radius: 16px;
+                        backdrop-filter: blur(10px);
+                    }}
+                    h1 {{ margin-bottom: 20px; }}
+                    p {{ margin-bottom: 30px; opacity: 0.9; }}
+                    .button {{
+                        background: white;
+                        color: #667eea;
+                        border: none;
+                        padding: 16px 32px;
+                        border-radius: 8px;
+                        font-size: 18px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        text-decoration: none;
+                        display: inline-block;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>✅ Login Exitoso!</h1>
+                    <p>Abriendo la aplicación...</p>
+                    <a href="{deep_link_url}" class="button">Abrir SignText</a>
+                </div>
+                <script>
+                    setTimeout(function() {{
+                        window.location.href = "{deep_link_url}";
+                    }}, 1000);
+                </script>
+            </body>
+            </html>
+            """,
+            media_type="text/html",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <h1>Error de Login</h1>
+                <p>{str(e)}</p>
+            </body>
+            </html>
+            """,
+            media_type="text/html",
+            status_code=400,
         )
