@@ -1,4 +1,7 @@
-FROM ghcr.io/astral-sh/uv-python:3.11-slim
+FROM python:3.11-slim
+
+# Instalar uv desde Docker Hub (evita ghcr.io)
+COPY --from=astral/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -12,6 +15,7 @@ RUN uv sync --frozen --no-dev
 
 COPY . .
 
-EXPOSE 8000
+ENV PATH="/app/.venv/bin:$PATH"
 
+EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
