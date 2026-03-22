@@ -1,7 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, Token
+from app.schemas.user import (
+    UserCreate,
+    UserLogin,
+    Token,
+    UserUpdate,
+    ChangePasswordRequest,
+)
 from app.utils.security import (
     verify_password,
     get_password_hash,
@@ -186,4 +192,56 @@ class AuthService:
 
         # Delete token from Redis
         await redis_client.delete_value(f"verify:{token}")
+        return True
+
+    @staticmethod
+    async def update_user(db: AsyncSession, user_id: str, update_data: UserUpdate) -> Optional[User]:
+        user = await AuthService.get_user_by_id(db, user_id)
+        if not user:
+            return None
+        
+        # Only update provided fields
+        if update_data.full_name is not None:
+            user.full_name = update_data.full_name
+        if update_data.avatar_url is not None:
+            user.avatar_url = update_data.avatar_url
+            
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    @staticmethod
+    async def change_password(db: AsyncSession, user_id: str, data: ChangePasswordRequest) -> bool:
+        user = await AuthService.get_user_by_id(db, user_id)
+        if not user:
+            return False
+            
+        # Verify old password
+        if user.is_oauth:
+            # Maybe allow setting password for OAuth users for the first time
+            # For now, if no hashed_password, just verify if it matches None/empty? nah
+            if not user.hashed_password:
+                # First time setting password
+                pass
+            elif not verify_password(data.old_password, user.hashed_password):
+                return False
+        elif not verify_password(data.old_password, user.hashed_password):
+            return False
+            
+        # Update password
+        user.hashed_password = get_password_hash(data.new_password)
+        await db.commit()
+        return True
+
+    @staticmethod
+    async def delete_user(db: AsyncSession, user_id: str) -> bool:
+        user = await AuthService.get_user_by_id(db, user_id)
+        if not user:
+            return False
+            
+        # Optional: Delete all related translations first if no cascade exists
+        # In SQLAlchemy, it depends on relationship configuration
+        
+        await db.delete(user)
+        await db.commit()
         return True

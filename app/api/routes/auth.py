@@ -10,6 +10,8 @@ from app.schemas.user import (
     UserResponse,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    UserUpdate,
+    ChangePasswordRequest,
 )
 from app.services.auth_service import AuthService
 from app.services import oauth_service
@@ -358,3 +360,62 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
         )
     return {"message": "Email successfully verified"}
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_profile(
+    update_data: UserUpdate,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = await AuthService.get_user_from_token(credentials.credentials)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    
+    user = await AuthService.update_user(db, user_id, update_data)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return user
+
+
+@router.post("/me/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = await AuthService.get_user_from_token(credentials.credentials)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    
+    success = await AuthService.change_password(db, user_id, data)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid old password"
+        )
+    return {"message": "Password successfully changed"}
+
+
+@router.delete("/me")
+async def delete_account(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = await AuthService.get_user_from_token(credentials.credentials)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+    
+    success = await AuthService.delete_user(db, user_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return {"message": "Account successfully deleted"}
