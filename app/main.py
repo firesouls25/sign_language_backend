@@ -6,7 +6,11 @@ from app.config import settings
 from app.api.routes import auth, translation
 from app.api.routes.websocket import websocket_endpoint
 from app.utils.redis_client import redis_client
+from app.utils.logging_config import setup_logging, LoggingMiddleware
 import uuid
+
+# Initialize logging
+setup_logging()
 
 app = FastAPI(
     title="LSC Translator API",
@@ -14,6 +18,9 @@ app = FastAPI(
     version="1.0.0",
     debug=settings.DEBUG,
 )
+
+# Add Structured Logging Middleware
+app.add_middleware(LoggingMiddleware)
 
 app.add_middleware(
     SessionMiddleware,
