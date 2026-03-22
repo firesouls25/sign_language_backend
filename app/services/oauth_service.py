@@ -44,6 +44,58 @@ async def get_google_userinfo(access_token: str) -> dict:
         return response.json()
 
 
+async def verify_google_id_token(id_token: str) -> dict:
+    """Verify Google ID token and return user info"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://oauth2.googleapis.googleapis.com/tokeninfo",
+                params={"id_token": id_token},
+            )
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid Google ID token",
+                )
+            return response.json()
+    except httpx.HTTPError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to verify Google token: {str(e)}",
+        )
+
+
+async def verify_google_token_and_get_user(
+    db: AsyncSession,
+    id_token: str,
+) -> Optional[User]:
+    """Verify Google ID token and find or create user"""
+    token_info = await verify_google_id_token(id_token)
+
+    aud = token_info.get("aud")
+    if aud != settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token audience mismatch",
+        )
+
+    sub = token_info.get("sub")
+    email = token_info.get("email")
+
+    if not sub or not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token payload",
+        )
+
+    return await find_or_create_oauth_user(
+        db=db,
+        provider="google",
+        provider_id=sub,
+        email=email,
+    )
+
+
 async def get_apple_userinfo(access_token: str) -> dict:
     async with httpx.AsyncClient() as client:
         response = await client.post(

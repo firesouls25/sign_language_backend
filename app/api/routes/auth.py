@@ -12,6 +12,7 @@ from app.schemas.user import (
     ResetPasswordRequest,
     UserUpdate,
     ChangePasswordRequest,
+    GoogleTokenRequest,
 )
 from app.services.auth_service import AuthService
 from app.services import oauth_service
@@ -575,3 +576,32 @@ async def delete_account(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     return {"message": "Account successfully deleted"}
+
+
+@router.post("/google-token", response_model=Token)
+async def google_token(
+    data: GoogleTokenRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Exchange Google ID token for app tokens"""
+    try:
+        user = await oauth_service.verify_google_token_and_get_user(
+            db=db,
+            id_token=data.id_token,
+        )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to verify Google token",
+            )
+
+        return await oauth_service.create_tokens_for_user(user)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Google authentication failed: {str(e)}",
+        )
