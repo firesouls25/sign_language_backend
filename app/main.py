@@ -1,16 +1,18 @@
+import os
+import uuid
+
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from app.database import init_db
-from app.config import settings
+
 from app.api.routes import auth, translation
 from app.api.routes.websocket import websocket_endpoint
+from app.config import settings
+from app.database import init_db
+from app.utils.logging_config import LoggingMiddleware, setup_logging
 from app.utils.redis_client import redis_client
-from app.utils.logging_config import setup_logging, LoggingMiddleware
-import uuid
 
-# Initialize logging
 setup_logging()
 
 app = FastAPI(
@@ -20,12 +22,8 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
-# Add Structured Logging Middleware
 app.add_middleware(LoggingMiddleware)
 
-# Static files for local storage
-import os
-from app.config import settings
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/api/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 

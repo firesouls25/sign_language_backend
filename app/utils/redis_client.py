@@ -1,6 +1,9 @@
-import redis.asyncio as redis
-from app.config import settings
 import logging
+from typing import Optional
+
+import redis.asyncio as redis
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +15,6 @@ class RedisClient:
     @property
     def client(self) -> redis.Redis:
         if self._client is None:
-            # Fallback if connect() hasn't been called or failed
             self._client = redis.from_url(settings.REDIS_URL, decode_responses=True)
         return self._client
 
@@ -54,6 +56,3 @@ class RedisClient:
 
 
 redis_client = RedisClient()
-
-# For type hinting
-from typing import Optional

@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ class EmailService:
         reset_link = f"lsc://reset-password?token={token}"
         # Also providing a web link example
         web_reset_link = f"http://localhost:5173/reset-password?token={token}"
-        
+
         email_content = f"""
         Subject: LSC Translator - Password Reset Request
         To: {email}
@@ -29,12 +28,12 @@ class EmailService:
         This link and token will expire in 1 hour.
         If you did not request this, please ignore this email.
         """
-        
+
         logger.info(f"Sending reset password email to {email}")
         print("------------------------------------------")
         print(email_content)
         print("------------------------------------------")
-        
+
         # Simulating async work
         return True
 
@@ -45,7 +44,7 @@ class EmailService:
         """
         verify_link = f"lsc://verify-email?token={token}"
         web_verify_link = f"http://localhost:8000/api/auth/verify-email?token={token}"
-        
+
         email_content = f"""
         Subject: LSC Translator - Verify Your Email
         To: {email}
@@ -59,12 +58,12 @@ class EmailService:
         
         This link and token will expire in 24 hours.
         """
-        
+
         logger.info(f"Sending verification email to {email}")
         print("------------------------------------------")
         print(email_content)
         print("------------------------------------------")
-        
+
         return True
 
 

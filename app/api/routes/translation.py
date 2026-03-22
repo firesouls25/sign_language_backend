@@ -7,7 +7,7 @@ from app.schemas.translation import TranslationResponse, TranslationHistoryRespo
 from app.services.auth_service import AuthService
 from app.services.storage_service import get_storage_service
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
 
 router = APIRouter(prefix="/api/translation", tags=["translation"])
@@ -20,8 +20,7 @@ async def get_current_user_id(
     user_id = await AuthService.get_user_from_token(credentials.credentials)
     if not user_id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
     return user_id
 
@@ -30,19 +29,17 @@ async def get_current_user_id(
 async def get_translation(
     translation_id: str,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ):
     result = await db.execute(
         select(Translation).where(
-            Translation.id == translation_id,
-            Translation.user_id == user_id
+            Translation.id == translation_id, Translation.user_id == user_id
         )
     )
     translation = result.scalar_one_or_none()
     if not translation:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Translation not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Translation not found"
         )
     return translation
 
@@ -95,21 +92,20 @@ async def get_translation_history(
 async def upload_video(
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
-    storage = Depends(get_storage_service)
+    storage=Depends(get_storage_service),
 ):
     if not file.content_type.startswith("video/"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be a video"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File must be a video"
         )
-    
+
     file_data = await file.read()
     video_url = await storage.upload_file(file_data, file.filename, file.content_type)
-    
+
     if not video_url:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not upload video"
+            detail="Could not upload video",
         )
-        
+
     return {"video_url": video_url}

@@ -316,13 +316,13 @@ async def logout(
     # We might want to pass the refresh token too if the client sends it
     # For now, let's try to get it from the body if possible, or just blacklist the access token
     access_token = credentials.credentials
-    
+
     # Optional: try to get refresh token from request body
     refresh_token = None
     try:
         body = await request.json()
         refresh_token = body.get("refresh_token")
-    except:
+    except Exception:
         pass
 
     await AuthService.logout(access_token, refresh_token)
@@ -333,8 +333,7 @@ async def logout(
 async def forgot_password(
     request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)
 ):
-    success = await AuthService.forgot_password(db, request.email)
-    # Always return success message for security (don't reveal if email exists)
+    await AuthService.forgot_password(db, request.email)
     return {
         "message": "If the email is registered, you will receive a reset link shortly."
     }
@@ -373,7 +372,7 @@ async def update_profile(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
-    
+
     user = await AuthService.update_user(db, user_id, update_data)
     if not user:
         raise HTTPException(
@@ -393,7 +392,7 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
-    
+
     success = await AuthService.change_password(db, user_id, data)
     if not success:
         raise HTTPException(
@@ -412,7 +411,7 @@ async def delete_account(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
-    
+
     success = await AuthService.delete_user(db, user_id)
     if not success:
         raise HTTPException(
