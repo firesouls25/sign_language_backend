@@ -7,8 +7,9 @@ import cv2
 
 logger = logging.getLogger(__name__)
 
-# Add sign_language_model to path
 SIGN_LANGUAGE_MODEL_DIR = os.path.join(os.path.dirname(__file__), "sign_language_model")
+DATASET_PATH = os.path.join(SIGN_LANGUAGE_MODEL_DIR, "data", "dataset")
+
 if SIGN_LANGUAGE_MODEL_DIR not in sys.path:
     sys.path.insert(0, SIGN_LANGUAGE_MODEL_DIR)
 
@@ -99,9 +100,18 @@ class SignRecognizer:
         try:
             from utils.dataset_lsc70_utils import load_reference_signs_lsc70
 
-            # Change to the sign_language_model directory
+            logger.info(f"Loading dataset from: {DATASET_PATH}")
+
+            if not os.path.exists(DATASET_PATH):
+                logger.error(f"Dataset path does not exist: {DATASET_PATH}")
+                self._initialized = False
+                return
+
             original_dir = os.getcwd()
-            os.chdir(SIGN_LANGUAGE_MODEL_DIR)
+
+            if os.path.isdir(SIGN_LANGUAGE_MODEL_DIR):
+                os.chdir(SIGN_LANGUAGE_MODEL_DIR)
+                logger.info(f"Changed directory to: {os.getcwd()}")
 
             logger.info("Loading LSC70 reference dataset...")
             self.reference_signs = load_reference_signs_lsc70()

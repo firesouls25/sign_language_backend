@@ -4,6 +4,7 @@ __pycache__
 
 data/dataset/*
 !data/dataset/.gitkeep
+!data/dataset/*/*.pickle
 
 data/videos/*
 !data/videos/.gitkeep
