@@ -41,7 +41,13 @@ class AuthService:
         if existing_username:
             return None
 
-        hashed_password = get_password_hash(user_data.password)
+        try:
+            hashed_password = get_password_hash(user_data.password)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
         db_user = User(
             id=str(uuid.uuid4()),
             email=user_data.email,
