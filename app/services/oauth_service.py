@@ -202,4 +202,7 @@ def get_oauth_redirect_url(provider: str) -> str:
         callback_path = "/callback-dev"
     else:
         callback_path = "/callback-deep-link"
-    return f"{backend_url}/api/auth{callback_path}/{provider}"
+    
+    url = f"{backend_url}/api/auth{callback_path}/{provider}"
+    print(f"DEBUG redirect_uri: {url}")  # <-- agrega esto
+    return url
