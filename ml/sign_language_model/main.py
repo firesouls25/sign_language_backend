@@ -1,7 +1,6 @@
 import cv2
 
 from models.mediapipe import MediapipeHandDetector
-from models.yolo import YOLOHandDetector
 from utils.dataset_lsc70_utils import load_reference_signs_lsc70
 from sign_recorder import SignRecorder
 from webcam_manager import WebcamManager
@@ -38,20 +37,13 @@ if __name__ == "__main__":
 
         print("Webcam lista!")
         print("Senales: HOLA, NOMBRE, BUENAS, TARDES, NOCHES, DIAS, GUSTAR, LICOR, YO, ANNOS")
-        print("Controles: q=salir  c=borrar frase  v=cambiar vista (mediapipe/yolo/both)")
+        print("Controles: q=salir  c=borrar frase  v=cambiar vista (mediapipe)")
 
         hand_detector = MediapipeHandDetector(
             model_path="mediapipe/models/hand_landmarker.task",
             num_hands=2,
             static_image_mode=True,
         )
-
-        try:
-            yolo_detector = YOLOHandDetector(model_name="yolov8n.pt")
-            print("YOLO cargado (usando yolov8n.pt)")
-        except Exception as e:
-            print(f"YOLO no disponible: {e}")
-            yolo_detector = None
 
         while True:
             try:
@@ -62,13 +54,6 @@ if __name__ == "__main__":
 
                 hand_results = hand_detector.detect(frame)
                 results = MediapipeHolisticResults(hand_results)
-
-                yolo_results = []
-                if yolo_detector:
-                    try:
-                        yolo_results = yolo_detector.detect(frame)
-                    except Exception:
-                        pass
 
                 sign_detected, is_recording = sign_recorder.process_results(results)
 
@@ -83,7 +68,6 @@ if __name__ == "__main__":
                 webcam_manager.update(
                     frame,
                     results,
-                    yolo_results,
                     sign_detected,
                     is_recording,
                     sign_recorder.get_phrase(),
@@ -99,9 +83,6 @@ if __name__ == "__main__":
                 elif pressedKey == ord("c"):
                     sign_recorder.clear_phrase()
                     print("Frase borrada")
-                elif pressedKey == ord("v"):
-                    webcam_manager.toggle_view()
-                    print(f"Vista: {webcam_manager.view_mode}")
 
             except KeyboardInterrupt:
                 print("\nInterrumpido por usuario")

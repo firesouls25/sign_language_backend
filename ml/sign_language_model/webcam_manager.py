@@ -6,7 +6,6 @@ from mediapipe.tasks.python.vision import HandLandmarksConnections, drawing_util
 WHITE_COLOR = (245, 242, 226)
 RED_COLOR = (25, 35, 240)
 GREEN_COLOR = (35, 220, 80)
-BLUE_COLOR = (255, 100, 50)
 
 WINDOW_NAME = "LSC - Sign Language Recognition"
 
@@ -19,7 +18,6 @@ class WebcamManager(object):
         self.confidence = 0.0
         self.candidate = ""
         self.candidate_confidence = 0.0
-        self.view_mode = "mediapipe"
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(WINDOW_NAME, 1280, 720)
 
@@ -27,7 +25,6 @@ class WebcamManager(object):
         self,
         frame: np.ndarray,
         results,
-        yolo_results=None,
         sign_detected: str = "",
         is_recording: bool = False,
         phrase: str = "",
@@ -43,15 +40,7 @@ class WebcamManager(object):
         self.candidate_confidence = candidate_confidence
 
         frame = frame.copy()
-
-        if self.view_mode == "mediapipe":
-            frame = self.draw_landmarks(frame, results)
-        elif self.view_mode == "yolo" and yolo_results:
-            frame = self.draw_yolo(frame, yolo_results)
-        elif self.view_mode == "both" and yolo_results:
-            frame = self.draw_landmarks(frame, results)
-            frame = self.draw_yolo(frame, yolo_results)
-
+        frame = self.draw_landmarks(frame, results)
         frame = cv2.flip(frame, 1)
         frame = self.draw_ui(frame)
 
@@ -69,19 +58,13 @@ class WebcamManager(object):
         cv2.addWeighted(overlay, 0.8, frame, 0.2, 0, frame)
         cv2.rectangle(frame, (0, bottom_y), (window_w, window_h), (60, 60, 60), 2)
 
-        mode_color = GREEN_COLOR
-        if self.view_mode == "yolo":
-            mode_color = BLUE_COLOR
-        elif self.view_mode == "both":
-            mode_color = (150, 150, 100)
-
         cv2.putText(
             frame,
-            f"vista: {self.view_mode}",
+            "vista: mediapipe",
             (window_w - 200, 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
-            mode_color,
+            GREEN_COLOR,
             2,
         )
 
@@ -155,8 +138,8 @@ class WebcamManager(object):
 
         cv2.putText(
             frame,
-            "q=salir  c=borrar  v=cambiar vista",
-            (window_w - 350, window_h - 25),
+            "q=salir  c=borrar",
+            (window_w - 250, window_h - 25),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.6,
             (150, 150, 150),
@@ -164,11 +147,6 @@ class WebcamManager(object):
         )
 
         return frame
-
-    def toggle_view(self):
-        modes = ["mediapipe", "yolo", "both"]
-        current_idx = modes.index(self.view_mode) if self.view_mode in modes else 0
-        self.view_mode = modes[(current_idx + 1) % len(modes)]
 
     @staticmethod
     def draw_landmarks(image, results):
@@ -196,22 +174,5 @@ class WebcamManager(object):
                 connection_drawing_spec=drawing_utils.DrawingSpec(
                     color=(255, 249, 161), thickness=2, circle_radius=2
                 ),
-            )
-        return image
-
-    @staticmethod
-    def draw_yolo(image, detections):
-        for det in detections:
-            x1, y1, x2, y2 = map(int, det.bbox)
-            cv2.rectangle(image, (x1, y1), (x2, y2), BLUE_COLOR, 3)
-            label = f"hand: {det.confidence:.2f}"
-            cv2.putText(
-                image,
-                label,
-                (x1, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                BLUE_COLOR,
-                2,
             )
         return image
