@@ -1,11 +1,11 @@
 import numpy as np
 import cv2
 import base64
-from typing import Dict
+from typing import Dict, Optional
 import logging
 from ml.processor import get_sign_recognizer
 from app.services.tts_service import get_tts_service
-from app.utils.redis_client import redis_client
+from app.services.storage_service import get_storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -14,64 +14,62 @@ class AIService:
     def __init__(self):
         self.recognizer = get_sign_recognizer()
         self.tts = get_tts_service()
+        self.storage = get_storage_service()
         self.last_audio_text = ""
-        logger.info("AIService initialized with TTS")
+        logger.info("AIService initialized")
 
-    async def process_frame(self, frame_data: str) -> Dict:
+    async def process_frame(
+        self, frame_data: str, user_id: Optional[str] = None
+    ) -> Dict:
         try:
             img_bytes = base64.b64decode(frame_data)
             nparr = np.frombuffer(img_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            
+
             if img is None:
                 return {
                     "type": "error",
                     "message": "Could not decode frame",
-                    "code": "DECODE_ERROR"
+                    "code": "DECODE_ERROR",
                 }
-            
+
             result = self.recognizer.process_frame(img)
             text = result.get("text", "")
-            
+
             audio_data = None
-            # Only generate audio if text is not empty and different from last one
             if text and text != self.last_audio_text:
-                # 1. Check Cache first
-                cache_key = f"tts:cache:es:{text}"
-                cached_url = await redis_client.get_value(cache_key)
-                
-                if cached_url:
-                    audio_data = cached_url
-                    logger.info(f"TTS Cache hit for: {text}")
-                else:
-                    # 2. Generate new audio
-                    audio_data = await self.tts.text_to_speech(text)
-                    if audio_data:
-                        # 3. Save to Cache (1 week expiration)
-                        await redis_client.set_value(cache_key, audio_data, 604800)
-                
+                audio_data = self.tts.text_to_speech(text)
                 self.last_audio_text = text
             elif not text:
                 self.last_audio_text = ""
 
-            return {
+            response = {
                 "type": "translation",
                 "text": text,
                 "confidence": result.get("confidence", 0.0),
                 "has_keypoints": result.get("keypoints") is not None,
-                "audio": audio_data
+                "phrase": result.get("phrase", ""),
+                "is_recording": result.get("is_recording", False),
+                "candidate": result.get("candidate", ""),
+                "candidate_confidence": result.get("candidate_confidence", 0.0),
             }
-            
+
+            if audio_data:
+                response["audio"] = audio_data
+
+            # Handle sign detected event for saving translation
+            if text and user_id:
+                response["sign_detected"] = True
+
+            return response
+
         except Exception as e:
             logger.error(f"Error processing frame: {e}")
-            return {
-                "type": "error",
-                "message": str(e),
-                "code": "PROCESSING_ERROR"
-            }
+            return {"type": "error", "message": str(e), "code": "PROCESSING_ERROR"}
 
     def reset(self):
         self.recognizer.reset_sequence()
+        self.last_audio_text = ""
 
 
 ai_service = None

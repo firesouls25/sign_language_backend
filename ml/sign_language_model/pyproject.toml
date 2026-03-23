@@ -1,0 +1,28 @@
+[project]
+name = "sign-language-recognition"
+version = "0.1.0"
+description = "Sign Language Recognition using MediaPipe and DTW"
+requires-python = ">=3.10"
+dependencies = [
+    "opencv-contrib-python>=4.8.0",
+    "opencv-python>=4.8.0",
+    "fastdtw==0.3.4",
+    "mediapipe>=0.10.0",
+    "numpy",
+    "pandas>=2.0.0",
+    "tqdm>=4.65.0",
+    "ultralytics>=8.0.0",
+    "yt-dlp>=2023.0.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.0",
+]
+
+[tool.uv]
+package = false

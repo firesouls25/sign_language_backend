@@ -1,19 +1,11 @@
 import os
-import uuid
-
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-
 from app.api.routes import auth, translation
 from app.api.routes.websocket import websocket_endpoint
 from app.config import settings
 from app.database import init_db
-from app.utils.logging_config import LoggingMiddleware, setup_logging
-from app.utils.redis_client import redis_client
-
-setup_logging()
 
 app = FastAPI(
     title="LSC Translator API",
@@ -21,11 +13,6 @@ app = FastAPI(
     version="1.0.0",
     debug=settings.DEBUG,
 )
-
-app.add_middleware(LoggingMiddleware)
-
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-app.mount("/api/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     SessionMiddleware,
@@ -44,12 +31,6 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     await init_db()
-    await redis_client.connect()
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await redis_client.close()
 
 
 app.include_router(auth.router)
@@ -62,9 +43,8 @@ if settings.ENABLE_DEV_ROUTES:
 
 
 @app.websocket("/ws/translate")
-async def websocket_route(websocket: WebSocket):
-    client_id = str(uuid.uuid4())
-    await websocket_endpoint(websocket, client_id)
+async def websocket_route(websocket: WebSocket, token: str = Query(None)):
+    await websocket_endpoint(websocket, token)
 
 
 @app.get("/health")
