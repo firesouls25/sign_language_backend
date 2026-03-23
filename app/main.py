@@ -32,6 +32,15 @@ app.add_middleware(
 async def startup_event():
     await init_db()
 
+    from ml.processor import get_sign_recognizer
+    from app.services.ai_service import get_ai_service
+
+    recognizer = get_sign_recognizer()
+    ai_service = get_ai_service()
+
+    print(f"Model initialized: {recognizer._initialized}")
+    print(f"Recorder available: {recognizer.recorder is not None}")
+
 
 app.include_router(auth.router)
 app.include_router(translation.router)

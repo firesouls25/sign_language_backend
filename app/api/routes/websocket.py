@@ -71,31 +71,49 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
 
     try:
         while True:
-            data = await websocket.receive_text()
-            message = json.loads(data)
+            try:
+                data = await websocket.receive()
 
-            if message.get("type") == "frame":
-                current_user_id = manager.get_user_id(client_id)
-                result = await ai_service.process_frame(
-                    message.get("data", ""), current_user_id
+                if data.type == "bytes":
+                    frame_data = data.data
+                    current_user_id = manager.get_user_id(client_id)
+                    result = await ai_service.process_frame_binary(
+                        frame_data, current_user_id
+                    )
+                    await manager.send_message(result, client_id)
+
+                elif data.type == "text":
+                    message = json.loads(data.text)
+
+                    if message.get("type") == "frame":
+                        current_user_id = manager.get_user_id(client_id)
+                        result = await ai_service.process_frame(
+                            message.get("data", ""), current_user_id
+                        )
+                        await manager.send_message(result, client_id)
+
+                    elif message.get("type") == "ping":
+                        await manager.send_message({"type": "pong"}, client_id)
+
+                    elif message.get("type") == "reset":
+                        ai_service.reset()
+                        await manager.send_message(
+                            {"type": "reset", "status": "ok"}, client_id
+                        )
+
+            except json.JSONDecodeError:
+                await manager.send_message(
+                    {
+                        "type": "error",
+                        "message": "Invalid JSON format",
+                        "code": "INVALID_JSON",
+                    },
+                    client_id,
                 )
-                await manager.send_message(result, client_id)
-
-            elif message.get("type") == "ping":
-                await manager.send_message({"type": "pong"}, client_id)
-
-            elif message.get("type") == "reset":
-                ai_service.reset()
-                await manager.send_message({"type": "reset", "status": "ok"}, client_id)
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected: {client_id}")
         manager.disconnect(client_id)
-    except json.JSONDecodeError:
-        await manager.send_message(
-            {"type": "error", "message": "Invalid JSON format", "code": "INVALID_JSON"},
-            client_id,
-        )
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         await manager.send_message(
