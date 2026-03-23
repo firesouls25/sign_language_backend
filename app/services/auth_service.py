@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from fastapi import HTTPException, status
 from app.models.user import User
+from app.utils.exceptions import AppException
 from app.schemas.user import (
     UserCreate,
     UserLogin,
@@ -45,10 +45,7 @@ class AuthService:
         try:
             hashed_password = get_password_hash(user_data.password)
         except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
+            raise AppException(str(e), status_code=400)
         db_user = User(
             id=str(uuid.uuid4()),
             email=user_data.email,

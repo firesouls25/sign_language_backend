@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import logging
 from app.database import get_db
+from app.utils.exceptions import AppException
 
 logger = logging.getLogger(__name__)
 from app.schemas.user import (
@@ -428,6 +429,8 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         return user
     except HTTPException:
         raise
+    except AppException as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         logger.error(f"Registration error: {e}", exc_info=True)
         raise HTTPException(

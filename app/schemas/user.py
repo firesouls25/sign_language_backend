@@ -13,6 +13,13 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password cannot be longer than 72 bytes")
+        return v
+
 
 class UserLogin(BaseModel):
     username: str
