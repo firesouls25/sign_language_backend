@@ -198,6 +198,8 @@ def get_oauth_redirect_url(provider: str) -> str:
         else f"http://{settings.HOST}:{settings.PORT}"
     )
 
-    # Usar /callback-dev solo en desarrollo, /callback en producción
-    callback_path = "/callback-dev" if settings.DEBUG else "/callback"
+    if settings.DEBUG:
+        callback_path = "/callback-dev"
+    else:
+        callback_path = "/callback-deep-link"
     return f"{backend_url}/api/auth{callback_path}/{provider}"
