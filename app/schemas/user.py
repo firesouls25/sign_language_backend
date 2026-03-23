@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class UserBase(BaseModel):
@@ -26,6 +26,15 @@ class UserResponse(UserBase):
     oauth_provider: Optional[str] = None
     translation_count: int
     created_at: datetime
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def ensure_utc(cls, v):
+        if v is None:
+            return datetime.now(timezone.utc)
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
     class Config:
         from_attributes = True

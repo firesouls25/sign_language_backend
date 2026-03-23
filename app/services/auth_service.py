@@ -28,17 +28,19 @@ class AuthService:
     async def register(db: AsyncSession, user_data: UserCreate) -> Optional[User]:
         if not DB_AVAILABLE:
             return None
-        
+
         result = await db.execute(select(User).where(User.email == user_data.email))
         existing_user = result.scalar_one_or_none()
         if existing_user:
             return None
-        
-        result = await db.execute(select(User).where(User.username == user_data.username))
+
+        result = await db.execute(
+            select(User).where(User.username == user_data.username)
+        )
         existing_username = result.scalar_one_or_none()
         if existing_username:
             return None
-        
+
         hashed_password = get_password_hash(user_data.password)
         db_user = User(
             id=str(uuid.uuid4()),
@@ -50,31 +52,38 @@ class AuthService:
         db.add(db_user)
         await db.commit()
         await db.refresh(db_user)
-        
-        # Email Verification Flow
-        import secrets
-        token = secrets.token_urlsafe(32)
-        # Store in Redis (24 hours)
-        await redis_client.set_value(f"verify:{token}", db_user.id, 86400)
-        # Send verification email
-        await email_service.send_verification_email(db_user.email, token)
-        
+
+        try:
+            import secrets
+
+            token = secrets.token_urlsafe(32)
+            await redis_client.set_value(f"verify:{token}", db_user.id, 86400)
+            await email_service.send_verification_email(db_user.email, token)
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"Post-registration email/redis failed: {e}"
+            )
+
         return db_user
 
     @staticmethod
     async def login(db: AsyncSession, credentials: UserLogin) -> Optional[Token]:
         if not DB_AVAILABLE:
             return None
-        
-        result = await db.execute(select(User).where(User.username == credentials.username))
+
+        result = await db.execute(
+            select(User).where(User.username == credentials.username)
+        )
         user = result.scalar_one_or_none()
-        
+
         if not user or not verify_password(credentials.password, user.hashed_password):
             return None
-        
+
         access_token = create_access_token(data={"sub": user.id})
         refresh_token = create_refresh_token(data={"sub": user.id})
-        
+
         return Token(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -84,7 +93,7 @@ class AuthService:
     async def get_user_by_id(db: AsyncSession, user_id: str) -> Optional[User]:
         if not DB_AVAILABLE:
             return None
-        
+
         result = await db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
@@ -148,6 +157,7 @@ class AuthService:
 
         # Generate random token
         import secrets
+
         token = secrets.token_urlsafe(32)
 
         # Store in Redis (1 hour expiration)
@@ -194,27 +204,31 @@ class AuthService:
         return True
 
     @staticmethod
-    async def update_user(db: AsyncSession, user_id: str, update_data: UserUpdate) -> Optional[User]:
+    async def update_user(
+        db: AsyncSession, user_id: str, update_data: UserUpdate
+    ) -> Optional[User]:
         user = await AuthService.get_user_by_id(db, user_id)
         if not user:
             return None
-        
+
         # Only update provided fields
         if update_data.full_name is not None:
             user.full_name = update_data.full_name
         if update_data.avatar_url is not None:
             user.avatar_url = update_data.avatar_url
-            
+
         await db.commit()
         await db.refresh(user)
         return user
 
     @staticmethod
-    async def change_password(db: AsyncSession, user_id: str, data: ChangePasswordRequest) -> bool:
+    async def change_password(
+        db: AsyncSession, user_id: str, data: ChangePasswordRequest
+    ) -> bool:
         user = await AuthService.get_user_by_id(db, user_id)
         if not user:
             return False
-            
+
         # Verify old password
         if user.is_oauth:
             # Maybe allow setting password for OAuth users for the first time
@@ -226,7 +240,7 @@ class AuthService:
                 return False
         elif not verify_password(data.old_password, user.hashed_password):
             return False
-            
+
         # Update password
         user.hashed_password = get_password_hash(data.new_password)
         await db.commit()
@@ -237,10 +251,10 @@ class AuthService:
         user = await AuthService.get_user_by_id(db, user_id)
         if not user:
             return False
-            
+
         # Optional: Delete all related translations first if no cascade exists
         # In SQLAlchemy, it depends on relationship configuration
-        
+
         await db.delete(user)
         await db.commit()
         return True

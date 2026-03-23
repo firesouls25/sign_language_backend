@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, DateTime, Integer, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
+from datetime import datetime, timezone
 
 
 class User(Base):
@@ -18,5 +19,9 @@ class User(Base):
     oauth_provider_id = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
     translation_count = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc)
+    )

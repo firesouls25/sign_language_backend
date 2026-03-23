@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+import logging
 from app.database import get_db
+
+logger = logging.getLogger(__name__)
 from app.schemas.user import (
     UserCreate,
     UserLogin,
@@ -415,13 +418,22 @@ async def oauth_callback_dev(
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
-    user = await AuthService.register(db, user_data)
-    if not user:
+    try:
+        user = await AuthService.register(db, user_data)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email or username already registered",
+            )
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email or username already registered",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
-    return user
 
 
 @router.post("/login", response_model=Token)
