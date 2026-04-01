@@ -96,8 +96,19 @@ class AIService:
         try:
             from ml.processor import MediapipeResults
 
+            logger.info(
+                f"[AIService] Received landmarks request: {list(landmarks.keys())}"
+            )
+
             left_landmarks_data = landmarks.get("left_hand")
             right_landmarks_data = landmarks.get("right_hand")
+
+            logger.info(
+                f"[AIService] Left hand: {len(left_landmarks_data) if left_landmarks_data else 0} points"
+            )
+            logger.info(
+                f"[AIService] Right hand: {len(right_landmarks_data) if right_landmarks_data else 0} points"
+            )
 
             left_landmarks = (
                 self._create_landmark_points(left_landmarks_data)
@@ -111,12 +122,16 @@ class AIService:
             )
 
             results = MediapipeResults(
-                left_hand_landmarks=left_landmarks,
-                right_hand_landmarks=right_landmarks,
+                left_landmarks=left_landmarks,
+                right_landmarks=right_landmarks,
             )
 
             result = self.recognizer.process_landmarks_data(results)
             text = result.get("text", "")
+
+            logger.info(
+                f"[AIService] Recognized text: '{text}', confidence: {result.get('confidence', 0.0)}"
+            )
 
             audio_data = None
             if text and text != self.last_audio_text:
