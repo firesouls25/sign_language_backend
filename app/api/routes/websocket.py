@@ -101,6 +101,13 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                             {"type": "reset", "status": "ok"}, client_id
                         )
 
+                    elif message.get("type") == "landmarks":
+                        current_user_id = manager.get_user_id(client_id)
+                        result = await ai_service.process_landmarks(
+                            message.get("data", {}), current_user_id
+                        )
+                        await manager.send_message(result, client_id)
+
             except json.JSONDecodeError:
                 await manager.send_message(
                     {

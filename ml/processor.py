@@ -220,6 +220,59 @@ class SignRecognizer:
                 "candidate_confidence": 0.0,
             }
 
+    def process_landmarks_data(self, results: MediapipeResults) -> Dict:
+        """Procesar landmarks directamente sin necesidad de frame"""
+        self.frame_count += 1
+
+        self.sequence_buffer.append({"frame": self.frame_count})
+        if len(self.sequence_buffer) > self.sequence_length:
+            self.sequence_buffer.pop(0)
+
+        return self._recognize_from_landmarks(results)
+
+    def _recognize_from_landmarks(self, results: MediapipeResults) -> Dict:
+        """Reconocimiento de señas desde landmarks"""
+        if not self._initialized or self.recorder is None:
+            if len(self.sequence_buffer) < 5:
+                return {"text": "", "confidence": 0.0}
+            return {
+                "text": "Modelo no cargado",
+                "confidence": 0.0,
+                "phrase": "",
+                "is_recording": False,
+                "candidate": "",
+                "candidate_confidence": 0.0,
+            }
+
+        try:
+            sign_detected, is_recording = self.recorder.process_results(results)
+
+            return {
+                "keypoints": results.left_hand_landmarks
+                or results.right_hand_landmarks,
+                "text": self.recorder.current_sign if sign_detected else "",
+                "confidence": self.recorder.current_confidence
+                if sign_detected
+                else 0.0,
+                "phrase": self.recorder.get_phrase(),
+                "is_recording": is_recording,
+                "candidate": self.recorder.candidate_sign if not sign_detected else "",
+                "candidate_confidence": self.recorder.candidate_confidence
+                if not sign_detected
+                else 0.0,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in landmark recognition: {e}")
+            return {
+                "text": "",
+                "confidence": 0.0,
+                "phrase": "",
+                "is_recording": False,
+                "candidate": "",
+                "candidate_confidence": 0.0,
+            }
+
     def reset_sequence(self):
         self.sequence_buffer = []
         self.frame_count = 0
