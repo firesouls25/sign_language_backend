@@ -102,9 +102,15 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                         )
 
                     elif message.get("type") == "landmarks":
+                        logger.info(
+                            f"[WebSocket] Received landmarks message from client {client_id}"
+                        )
                         current_user_id = manager.get_user_id(client_id)
                         result = await ai_service.process_landmarks(
                             message.get("data", {}), current_user_id
+                        )
+                        logger.info(
+                            f"[WebSocket] Sending response: {result.get('text', '')}"
                         )
                         await manager.send_message(result, client_id)
 
