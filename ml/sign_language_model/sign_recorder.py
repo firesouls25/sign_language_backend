@@ -180,16 +180,16 @@ class SignRecorder:
         if recorded.has_left_hand and len(recorded.lh_embedding) > 0:
             ref_lh = reference.lh_embedding
             if len(ref_lh) > 0:
-                rec_arr = np.array(recorded.lh_embedding)
-                ref_arr = np.array(ref_lh)
+                rec_arr = np.mean(recorded.lh_embedding, axis=0)
+                ref_arr = np.mean(ref_lh, axis=0)
                 dist = np.linalg.norm(rec_arr - ref_arr)
                 distance += dist
 
         if recorded.has_right_hand and len(recorded.rh_embedding) > 0:
             ref_rh = reference.rh_embedding
             if len(ref_rh) > 0:
-                rec_arr = np.array(recorded.rh_embedding)
-                ref_arr = np.array(ref_rh)
+                rec_arr = np.mean(recorded.rh_embedding, axis=0)
+                ref_arr = np.mean(ref_rh, axis=0)
                 dist = np.linalg.norm(rec_arr - ref_arr)
                 distance += dist
 
@@ -218,19 +218,6 @@ class SignRecorder:
         if result:
             self.candidate_sign = result.sign_name
             self.candidate_confidence = result.confidence
-
-    def _finalize_sign(self):
-        if self._last_landmarks is None or not self.is_recording:
-            return
-
-        if current_landmarks["left"] or current_landmarks["right"]:
-            dist = self._landmarks_distance(self._last_landmarks, current_landmarks)
-            if dist < self.stillness_threshold_dist:
-                self.stillness_counter += 1
-                if self.stillness_counter >= self.stillness_threshold_frames:
-                    self._finalize_sign()
-            else:
-                self.stillness_counter = 0
 
     def _compute_recognition_fast(self, frames: list) -> SignRecognitionResult:
         left_hand_list = []
@@ -288,16 +275,16 @@ class SignRecorder:
         if recorded.has_left_hand and len(recorded.lh_embedding) > 0:
             ref_lh = reference.lh_embedding
             if len(ref_lh) > 0:
-                rec_arr = np.array(recorded.lh_embedding)
-                ref_arr = np.array(ref_lh)
+                rec_arr = np.mean(recorded.lh_embedding, axis=0)
+                ref_arr = np.mean(ref_lh, axis=0)
                 dist = np.linalg.norm(rec_arr - ref_arr)
                 distance += dist
 
         if recorded.has_right_hand and len(recorded.rh_embedding) > 0:
             ref_rh = reference.rh_embedding
             if len(ref_rh) > 0:
-                rec_arr = np.array(recorded.rh_embedding)
-                ref_arr = np.array(ref_rh)
+                rec_arr = np.mean(recorded.rh_embedding, axis=0)
+                ref_arr = np.mean(ref_rh, axis=0)
                 dist = np.linalg.norm(rec_arr - ref_arr)
                 distance += dist
 

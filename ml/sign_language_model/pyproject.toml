@@ -2,11 +2,14 @@
 name = "sign-language-recognition"
 version = "0.1.0"
 description = "Sign Language Recognition using MediaPipe and DTW"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
     "numpy",
     "pandas>=2.0.0",
     "tqdm>=4.65.0",
+    "opencv-python",
+    "mediapipe",
+    "fastdtw",
 ]
 
 [tool.ruff]
