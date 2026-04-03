@@ -74,25 +74,10 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
             try:
                 data = await websocket.receive()
 
-                if data["type"] == "bytes":
-                    frame_data = data["bytes"]
-                    current_user_id = manager.get_user_id(client_id)
-                    result = await ai_service.process_frame_binary(
-                        frame_data, current_user_id
-                    )
-                    await manager.send_message(result, client_id)
-
-                elif data["type"] == "text":
+                if data["type"] == "text":
                     message = json.loads(data["text"])
 
-                    if message.get("type") == "frame":
-                        current_user_id = manager.get_user_id(client_id)
-                        result = await ai_service.process_frame(
-                            message.get("data", ""), current_user_id
-                        )
-                        await manager.send_message(result, client_id)
-
-                    elif message.get("type") == "ping":
+                    if message.get("type") == "ping":
                         await manager.send_message({"type": "pong"}, client_id)
 
                     elif message.get("type") == "reset":
