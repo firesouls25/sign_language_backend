@@ -121,11 +121,11 @@ class SignRecognizer:
 
                 self.recorder = SignRecorder(
                     reference_signs=self.reference_signs,
-                    min_frames=10,
+                    min_frames=5,
                     max_frames=60,
-                    pause_threshold_frames=8,
-                    confidence_threshold=0.6,
-                    cooldown_seconds=0.8,
+                    pause_threshold_frames=4,
+                    confidence_threshold=0.5,
+                    cooldown_seconds=0.5,
                 )
                 self._initialized = True
                 logger.info(
