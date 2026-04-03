@@ -22,9 +22,8 @@ class AIService:
         try:
             from ml.processor import MediapipeResults
 
-            logger.info(
-                f"[AIService] Received landmarks request: {list(landmarks.keys())}"
-            )
+            logger.info(f"[AIService] Processing landmarks request")
+            logger.info(f"[AIService] Landmarks keys: {list(landmarks.keys())}")
 
             left_landmarks_data = landmarks.get("left_hand")
             right_landmarks_data = landmarks.get("right_hand")
@@ -34,6 +33,13 @@ class AIService:
             )
             logger.info(
                 f"[AIService] Right hand: {len(right_landmarks_data) if right_landmarks_data else 0} points"
+            )
+
+            logger.info(
+                f"[AIService] Recognizer initialized: {self.recognizer._initialized}"
+            )
+            logger.info(
+                f"[AIService] Recorder available: {self.recognizer.recorder is not None}"
             )
 
             left_landmarks = (
@@ -54,6 +60,12 @@ class AIService:
 
             result = self.recognizer.process_landmarks_data(results)
             text = result.get("text", "")
+            confidence = result.get("confidence", 0.0)
+
+            logger.info(
+                f"[AIService] Recognition complete: text='{text}', confidence={confidence:.2f}"
+            )
+            logger.info(f"[AIService] Full result: {result}")
 
             logger.info(
                 f"[AIService] Recognized text: '{text}', confidence: {result.get('confidence', 0.0)}"
@@ -86,7 +98,10 @@ class AIService:
             return response
 
         except Exception as e:
+            import traceback
+
             logger.error(f"Error processing landmarks: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {"type": "error", "message": str(e), "code": "LANDMARKS_ERROR"}
 
     def _create_landmark_points(self, landmarks_data):
