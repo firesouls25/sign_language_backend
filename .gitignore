@@ -62,7 +62,6 @@ htmlcov/
 # ML/Model files (keep structure, ignore weights)
 *.pth
 *.pt
-*.h5
 *.pkl
 models/*.pth
 models/*.pt
