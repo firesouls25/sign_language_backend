@@ -71,12 +71,15 @@ class SignRecorder:
             results.left_hand_landmarks, results.right_hand_landmarks
         )
 
+        pose_landmarks = self._extract_pose_raw(results.pose_landmarks)
+
         frame_data = {
             "results": results,
             "timestamp": datetime.now(),
             "has_left": has_left,
             "has_right": has_right,
             "landmarks": raw_landmarks,
+            "pose": pose_landmarks,
         }
         self.buffer.append(frame_data)
 
@@ -127,6 +130,7 @@ class SignRecorder:
     def _compute_recognition_fast(self, frames: list) -> SignRecognitionResult:
         left_hand_list = []
         right_hand_list = []
+        pose_list = []
 
         for frame in frames:
             res = frame["results"]
@@ -135,12 +139,16 @@ class SignRecorder:
             left_hand_list.append(lh)
             right_hand_list.append(rh)
 
-        if not left_hand_list and not right_hand_list:
+            pose_data = frame.get("pose")
+            if pose_data:
+                pose_list.append([coord for point in pose_data for coord in point])
+
+        if not left_hand_list and not right_hand_list and not pose_list:
             return None
 
         motion_score = self._compute_motion_score(frames)
 
-        recorded_sign = SignModel(left_hand_list, right_hand_list)
+        recorded_sign = SignModel(left_hand_list, right_hand_list, pose_list)
 
         distances = []
 
@@ -192,6 +200,15 @@ class SignRecorder:
                 ref_arr = np.mean(ref_rh, axis=0)
                 dist = np.linalg.norm(rec_arr - ref_arr)
                 distance += dist
+
+        if recorded.has_pose and len(recorded.pose_embedding) > 0:
+            ref_pose = getattr(reference, "pose_embedding", [])
+            if ref_pose and len(ref_pose) > 0:
+                rec_pose_arr = np.mean(recorded.pose_embedding, axis=0)
+                ref_pose_arr = np.mean(ref_pose, axis=0)
+                if len(rec_pose_arr) == len(ref_pose_arr):
+                    pose_dist = np.linalg.norm(rec_pose_arr - ref_pose_arr)
+                    distance += pose_dist * 0.5
 
         return float(distance)
 
@@ -222,6 +239,7 @@ class SignRecorder:
     def _compute_recognition_fast(self, frames: list) -> SignRecognitionResult:
         left_hand_list = []
         right_hand_list = []
+        pose_list = []
 
         for frame in frames:
             res = frame["results"]
@@ -230,12 +248,16 @@ class SignRecorder:
             left_hand_list.append(lh)
             right_hand_list.append(rh)
 
-        if not left_hand_list and not right_hand_list:
+            pose_data = frame.get("pose")
+            if pose_data:
+                pose_list.append([coord for point in pose_data for coord in point])
+
+        if not left_hand_list and not right_hand_list and not pose_list:
             return None
 
         motion_score = self._compute_motion_score(frames)
 
-        recorded_sign = SignModel(left_hand_list, right_hand_list)
+        recorded_sign = SignModel(left_hand_list, right_hand_list, pose_list)
 
         distances = []
 
@@ -287,6 +309,15 @@ class SignRecorder:
                 ref_arr = np.mean(ref_rh, axis=0)
                 dist = np.linalg.norm(rec_arr - ref_arr)
                 distance += dist
+
+        if recorded.has_pose and len(recorded.pose_embedding) > 0:
+            ref_pose = getattr(reference, "pose_embedding", [])
+            if ref_pose and len(ref_pose) > 0:
+                rec_pose_arr = np.mean(recorded.pose_embedding, axis=0)
+                ref_pose_arr = np.mean(ref_pose, axis=0)
+                if len(rec_pose_arr) == len(ref_pose_arr):
+                    pose_dist = np.linalg.norm(rec_pose_arr - ref_pose_arr)
+                    distance += pose_dist * 0.5
 
         return float(distance)
 
@@ -569,6 +600,20 @@ class SignRecorder:
             right = [[p.x, p.y, p.z] for p in right_landmarks]
 
         return {"left": left, "right": right}
+
+    @staticmethod
+    def _extract_pose_raw(pose_landmarks):
+        if not pose_landmarks:
+            return None
+
+        POSE_INDICES = [11, 12, 13, 14, 15, 16, 23, 24]
+
+        try:
+            pose_points = [[p.x, p.y, p.z] for p in pose_landmarks]
+            filtered = [pose_points[i] for i in POSE_INDICES if i < len(pose_points)]
+            return filtered if filtered else None
+        except:
+            return None
 
     def _reset_state(self):
         self.buffer = []

@@ -23,6 +23,7 @@ venv/
 ENV/
 env/
 .venv/
+kaggle.json
 
 # IDEs
 .vscode/

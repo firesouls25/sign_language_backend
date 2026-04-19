@@ -4,6 +4,7 @@ from models.mediapipe import (
     MediapipeHolisticDetector,
 )
 from models.core import HandModel, SignModel, PoseModel
+from models.recognizers import HandshapeRecognizer, FingerspellingRecognizer
 
 __all__ = [
     "MediapipeHandDetector",
@@ -12,4 +13,6 @@ __all__ = [
     "HandModel",
     "SignModel",
     "PoseModel",
+    "HandshapeRecognizer",
+    "FingerspellingRecognizer",
 ]

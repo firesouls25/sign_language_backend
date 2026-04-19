@@ -71,9 +71,10 @@ class KeypointExtractor:
 class MediapipeResults:
     """Wrapper class to make MediaPipe results compatible with SignRecorder"""
 
-    def __init__(self, left_landmarks, right_landmarks):
+    def __init__(self, left_landmarks, right_landmarks, pose_landmarks=None):
         self.left_hand_landmarks = left_landmarks
         self.right_hand_landmarks = right_landmarks
+        self.pose_landmarks = pose_landmarks
 
 
 class SignRecognizer:

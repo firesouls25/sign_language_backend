@@ -15,6 +15,7 @@ class ConnectionManager:
         self.active_connections: Dict[str, WebSocket] = {}
         self.user_ids: Dict[str, str] = {}
         self.last_activity: Dict[str, datetime] = {}
+        self.client_modes: Dict[str, str] = {}
 
     async def connect(
         self, websocket: WebSocket, client_id: str, user_id: Optional[str] = None
@@ -24,6 +25,7 @@ class ConnectionManager:
         if user_id:
             self.user_ids[client_id] = user_id
         self.last_activity[client_id] = datetime.now()
+        self.client_modes[client_id] = "handshape"
         logger.info(
             f"Client {client_id} connected" + (f" (user: {user_id})" if user_id else "")
         )
@@ -35,6 +37,8 @@ class ConnectionManager:
             del self.user_ids[client_id]
         if client_id in self.last_activity:
             del self.last_activity[client_id]
+        if client_id in self.client_modes:
+            del self.client_modes[client_id]
         logger.info(f"Client {client_id} disconnected")
 
     async def send_message(self, message: dict, client_id: str):
@@ -48,6 +52,16 @@ class ConnectionManager:
 
     def get_user_id(self, client_id: str) -> Optional[str]:
         return self.user_ids.get(client_id)
+
+    def get_mode(self, client_id: str) -> str:
+        return self.client_modes.get(client_id, "handshape")
+
+    def set_mode(self, client_id: str, mode: str):
+        if mode in ["handshape", "fingerspelling"]:
+            self.client_modes[client_id] = mode
+            logger.info(f"[ConnectionManager] Client {client_id} mode set to: {mode}")
+        else:
+            logger.warning(f"[ConnectionManager] Unknown mode: {mode}")
 
     def update_activity(self, client_id: str):
         self.last_activity[client_id] = datetime.now()
@@ -106,17 +120,36 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                             {"type": "reset", "status": "ok"}, client_id
                         )
 
+                    elif msg_type == "set_mode":
+                        mode = message.get("mode", "handshape")
+                        manager.set_mode(client_id, mode)
+                        ai_service.set_mode(mode)
+                        logger.info(
+                            f"[WebSocket] Mode set to '{mode}' for client {client_id}"
+                        )
+                        await manager.send_message(
+                            {"type": "mode_set", "mode": mode, "status": "ok"},
+                            client_id,
+                        )
+
                     elif msg_type == "landmarks":
                         landmarks_data = message.get("data", {})
+                        current_mode = message.get("mode", manager.get_mode(client_id))
+
+                        if current_mode != manager.get_mode(client_id):
+                            manager.set_mode(client_id, current_mode)
+                            ai_service.set_mode(current_mode)
+
                         logger.info(
                             f"[WebSocket] Received landmarks from {client_id}: "
                             f"left={len(landmarks_data.get('left_hand', []))} points, "
-                            f"right={len(landmarks_data.get('right_hand', []))} points"
+                            f"right={len(landmarks_data.get('right_hand', []))} points, "
+                            f"mode={current_mode}"
                         )
                         current_user_id = manager.get_user_id(client_id)
 
                         result = await ai_service.process_landmarks(
-                            landmarks_data, current_user_id
+                            landmarks_data, mode=current_mode, user_id=current_user_id
                         )
 
                         logger.info(
