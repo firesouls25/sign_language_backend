@@ -52,13 +52,64 @@ class AIService:
             logger.info(
                 f"[AIService] Right hand: {len(right_landmarks_data) if right_landmarks_data else 0} points"
             )
+            logger.info(
+                f"[AIService] left_hand type: {type(left_landmarks_data)}, is list: {isinstance(left_landmarks_data, list)}"
+            )
+            logger.info(
+                f"[AIService] right_hand type: {type(right_landmarks_data)}, is list: {isinstance(right_landmarks_data, list)}"
+            )
 
-            left_landmarks = left_landmarks_data if left_landmarks_data else None
-            right_landmarks = right_landmarks_data if right_landmarks_data else None
+            # Validate data format before passing to model
+            left_landmarks = None
+            right_landmarks = None
+
+            if left_landmarks_data and isinstance(left_landmarks_data, list):
+                if len(left_landmarks_data) >= 21:
+                    left_landmarks = left_landmarks_data
+                    logger.info(
+                        f"[AIService] Valid left_hand with {len(left_landmarks)} points"
+                    )
+                else:
+                    logger.warning(
+                        f"[AIService] left_hand has only {len(left_landmarks_data)} points, expected 21"
+                    )
+
+            if right_landmarks_data and isinstance(right_landmarks_data, list):
+                if len(right_landmarks_data) >= 21:
+                    right_landmarks = right_landmarks_data
+                    logger.info(
+                        f"[AIService] Valid right_hand with {len(right_landmarks)} points"
+                    )
+                else:
+                    logger.warning(
+                        f"[AIService] right_hand has only {len(right_landmarks_data)} points, expected 21"
+                    )
+
+            # Show detector status
+            detector = self.detector
+            logger.info(f"[AIService] Detector mode: {detector.mode}")
+            logger.info(
+                f"[AIService] Detector has handshape: {detector._handshape_recognizer is not None}"
+            )
+            logger.info(
+                f"[AIService] Detector has fingerspelling: {detector._fingerspelling_recognizer is not None}"
+            )
+            if (
+                hasattr(detector, "_fingerspelling_recognizer")
+                and detector._fingerspelling_recognizer
+            ):
+                logger.info(
+                    f"[AIService] Fingerspelling is_loaded: {detector._fingerspelling_recognizer.is_loaded}"
+                )
 
             raw_result = self.detector.process_landmarks(
                 left_landmarks, right_landmarks
             )
+
+            logger.info(
+                f"[AIService] raw_result keys: {raw_result.keys() if raw_result else 'None'}"
+            )
+            logger.info(f"[AIService] raw_result: {raw_result}")
 
             raw_text = raw_result.get("text", "")
             candidate = raw_result.get("candidate", "")
