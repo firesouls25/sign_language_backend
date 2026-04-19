@@ -47,27 +47,24 @@ class HandshapeRecognizer:
             self.is_loaded = False
 
     def extract_features(self, left_landmarks, right_landmarks) -> np.ndarray:
-        """Extract features from hand landmarks (21 points x 2 hands x 2 coords = 84)"""
-        features = []
-
-        # For ASL keypoints, we have 42 features (21 points x 2 coords)
-        # Combine left and right into single feature vector
+        """Extract features from hand landmarks (21 points x 3 coords = 63 per hand)"""
         left_flat = []
         right_flat = []
 
         if left_landmarks and len(left_landmarks) >= 21:
             for point in left_landmarks[:21]:
-                left_flat.extend([point[0], point[1]])
+                left_flat.extend([point[0], point[1], point[2] if len(point) > 2 else 0.0])
         else:
-            left_flat = [0.0] * 42
+            left_flat = [0.0] * 63
 
         if right_landmarks and len(right_landmarks) >= 21:
             for point in right_landmarks[:21]:
-                right_flat.extend([point[0], point[1]])
+                right_flat.extend([point[0], point[1], point[2] if len(point) > 2 else 0.0])
         else:
-            right_flat = [0.0] * 42
+            right_flat = [0.0] * 63
 
-        features = left_flat + right_flat
+        # Use right hand primarily (most people fingerspell with dominant hand)
+        features = right_flat if right_landmarks and len(right_landmarks) >= 21 else left_flat
         return np.array(features).reshape(1, -1)
 
     def predict(self, left_landmarks, right_landmarks) -> Dict:
