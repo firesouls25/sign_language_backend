@@ -20,6 +20,15 @@ except ImportError as e:
     TF_AVAILABLE = False
     logger.error(f"[FingerspellingRecognizer] TensorFlow not available: {e}")
 
+# Import sklearn for custom model
+try:
+    import joblib
+
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    logger.warning(f"[FingerspellingRecognizer] sklearn/joblib not available")
+
 
 class FingerspellingRecognizer:
     """
@@ -46,19 +55,32 @@ class FingerspellingRecognizer:
         self._load_model()
 
     def _load_model(self):
-        """Load Keras model from Hugging Face"""
+        """Load sklearn or Keras model"""
+        # First try sklearn model (custom trained, higher priority)
+        sklearn_file = os.path.join(self.model_path, "model.joblib")
+
+        if os.path.exists(sklearn_file) and SKLEARN_AVAILABLE:
+            try:
+                logger.info(f"[FingerspellingRecognizer] Loading sklearn model from {sklearn_file}")
+                self.model, self.scaler = joblib.load(sklearn_file)
+                self.is_loaded = True
+                self.model_type = "sklearn"
+                logger.info(f"[FingerspellingRecognizer] SUCCESS: sklearn model loaded!")
+                return
+            except Exception as e:
+                logger.warning(f"[FingerspellingRecognizer] Failed to load sklearn: {e}")
+
+        # Fall back to TensorFlow/Keras model
         weights_file = os.path.join(self.model_path, "asl-now-weights.h5")
         keras_file = os.path.join(self.model_path, "asl-now.keras")
 
-        logger.info(f"[FingerspellingRecognizer] Attempting to load model from: {self.model_path}")
         logger.info(
-            f"[FingerspellingRecognizer] Weights file exists: {os.path.exists(weights_file)}"
+            f"[FingerspellingRecognizer] Attempting to load TensorFlow model from: {self.model_path}"
         )
-        logger.info(f"[FingerspellingRecognizer] Keras file exists: {os.path.exists(keras_file)}")
         logger.info(f"[FingerspellingRecognizer] TensorFlow available: {TF_AVAILABLE}")
 
         if not TF_AVAILABLE:
-            self.load_error = "TensorFlow not available"
+            self.load_error = "No models available"
             logger.error(f"[FingerspellingRecognizer] Cannot load model: TensorFlow not available")
             self.is_loaded = False
             return
@@ -77,35 +99,25 @@ class FingerspellingRecognizer:
                 model.load_weights(weights_file)
                 self.model = model
                 self.is_loaded = True
-                logger.info(f"[FingerspellingRecognizer] SUCCESS: Model loaded from weights!")
-                logger.info(
-                    f"[FingerspellingRecognizer] Model input shape: {self.model.input_shape}"
-                )
-                logger.info(
-                    f"[FingerspellingRecognizer] Model output shape: {self.model.output_shape}"
-                )
+                self.model_type = "tensorflow"
+                logger.info(f"[FingerspellingRecognizer] SUCCESS: TensorFlow model loaded!")
                 return
             elif os.path.exists(keras_file):
                 logger.info(f"[FingerspellingRecognizer] Loading from keras file: {keras_file}")
                 self.model = tf.keras.models.load_model(keras_file)
                 self.is_loaded = True
-                logger.info(f"[FingerspellingRecognizer] SUCCESS: Model loaded from keras file!")
+                self.model_type = "tensorflow"
+                logger.info(f"[FingerspellingRecognizer] SUCCESS: keras file loaded!")
                 return
             else:
                 self.load_error = f"No model file found at {self.model_path}"
-                logger.error(
-                    f"[FingerspellingRecognizer] No model files found: {weights_file} or {keras_file}"
-                )
+                logger.error(f"[FingerspellingRecognizer] No model files found")
 
         except Exception as e:
             self.load_error = str(e)
             logger.error(f"[FingerspellingRecognizer] Exception loading model: {e}")
-            import traceback
 
-            logger.error(f"[FingerspellingRecognizer] Traceback: {traceback.format_exc()}")
-            self.is_loaded = False
-
-        logger.warning(f"[FingerspellingRecognizer] Model loading failed, will use placeholder")
+        logger.warning(f"[FingerspellingRecognizer] Model loading failed")
         self.is_loaded = False
 
     def extract_features(self, landmarks) -> np.ndarray:
@@ -119,9 +131,16 @@ class FingerspellingRecognizer:
             x = float(point[0]) if len(point) > 0 else 0.0
             y = float(point[1]) if len(point) > 1 else 0.0
             z = float(point[2]) if len(point) > 2 else 0.0
-            features.append([x, y, z])
+            features.extend([x, y, z])
 
-        return np.array(features).reshape(1, 21, 3)
+        features = np.array(features)
+
+        # sklearn model uses 42 features (21 points x, y)
+        # tensorflow model uses 63 features (21 points x, y, z)
+        if getattr(self, "model_type", None) == "sklearn":
+            return features[:42].reshape(1, -1)
+        else:
+            return features.reshape(1, 21, 3)
 
     def predict(self, left_landmarks, right_landmarks) -> Dict:
         """Predict letter from hand landmarks."""
@@ -168,22 +187,23 @@ class FingerspellingRecognizer:
                 }
 
             logger.info(f"[FingerspellingRecognizer] Running model prediction...")
-            predictions = self.model.predict(features, verbose=0)[0]
-            letter_idx = int(np.argmax(predictions))
-            confidence = float(predictions[letter_idx])
+
+            if getattr(self, "model_type", None) == "sklearn" and hasattr(self, "scaler"):
+                # sklearn prediction
+                features_scaled = self.scaler.transform(features)
+                proba = self.model.predict_proba(features_scaled)[0]
+                letter_idx = int(np.argmax(proba))
+                confidence = float(proba[letter_idx])
+            else:
+                # TensorFlow prediction
+                predictions = self.model.predict(features, verbose=0)[0]
+                letter_idx = int(np.argmax(predictions))
+                confidence = float(predictions[letter_idx])
 
             letter = LABEL_MAP.get(letter_idx, "?")
 
             logger.info(
                 f"[FingerspellingRecognizer] Prediction: {letter} (idx={letter_idx}) confidence={confidence:.4f}"
-            )
-            logger.info(
-                f"[FingerspellingRecognizer] Top 3 predictions:",
-                sorted(
-                    [(ALPHABET[j], predictions[j]) for j in range(26)],
-                    key=lambda x: x[1],
-                    reverse=True,
-                )[:3],
             )
 
             self.letter_buffer.append((letter, confidence))

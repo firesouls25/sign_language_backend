@@ -10,6 +10,8 @@ dependencies = [
     "opencv-python",
     "mediapipe",
     "fastdtw",
+    "joblib",
+    "scikit-learn",
 ]
 
 [tool.ruff]
