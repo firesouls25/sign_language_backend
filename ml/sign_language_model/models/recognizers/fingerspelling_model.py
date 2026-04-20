@@ -125,22 +125,29 @@ class FingerspellingRecognizer:
         if not landmarks or len(landmarks) < 21:
             return None
 
+        # Extract x,y for each point (in sequence: x1,y1,x2,y2,...x21,y21 = 42 values)
         features = []
         for i in range(21):
             point = landmarks[i] if i < len(landmarks) else [0.0, 0.0, 0.0]
             x = float(point[0]) if len(point) > 0 else 0.0
             y = float(point[1]) if len(point) > 1 else 0.0
-            z = float(point[2]) if len(point) > 2 else 0.0
-            features.extend([x, y, z])
+            features.extend([x, y])
 
-        features = np.array(features)
+        features = np.array(features).reshape(1, -1)
 
-        # sklearn model uses 42 features (21 points x, y)
-        # tensorflow model uses 63 features (21 points x, y, z)
-        if getattr(self, "model_type", None) == "sklearn":
-            return features[:42].reshape(1, -1)
-        else:
-            return features.reshape(1, 21, 3)
+        # tensorflow model uses 63 features (x,y,z for 21 points)
+        if getattr(self, "model_type", None) != "sklearn":
+            # For tensorflow, we need x,y,z format
+            tf_features = []
+            for i in range(21):
+                point = landmarks[i] if i < len(landmarks) else [0.0, 0.0, 0.0]
+                x = float(point[0]) if len(point) > 0 else 0.0
+                y = float(point[1]) if len(point) > 1 else 0.0
+                z = float(point[2]) if len(point) > 2 else 0.0
+                tf_features.append([x, y, z])
+            return np.array(tf_features).reshape(1, 21, 3)
+
+        return features
 
     def predict(self, left_landmarks, right_landmarks) -> Dict:
         """Predict letter from hand landmarks."""
