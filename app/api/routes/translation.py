@@ -115,16 +115,18 @@ async def upload_video(
 async def get_model_status(
     user_id: str = Depends(get_current_user_id),
 ):
-    from ml.processor import get_sign_recognizer
+    from app.services.ai_service import get_ai_service
 
-    recognizer = get_sign_recognizer()
+    ai_service = get_ai_service()
+    detector = ai_service.detector
 
     return {
-        "model_loaded": recognizer._initialized,
-        "model_available": recognizer.recorder is not None,
-        "supported_signs": recognizer.reference_signs["name"].unique().tolist()
-        if recognizer.reference_signs is not None
-        else [],
-        "sequence_buffer_length": recognizer.sequence_length,
-        "frame_count": recognizer.frame_count,
+        "detector_initialized": detector._initialized,
+        "handshape_loaded": detector._handshape_recognizer.is_loaded
+        if detector._handshape_recognizer
+        else False,
+        "fingerspelling_loaded": detector._fingerspelling_recognizer.is_loaded
+        if detector._fingerspelling_recognizer
+        else False,
+        "current_mode": detector.mode,
     }

@@ -32,14 +32,18 @@ app.add_middleware(
 async def startup_event():
     await init_db()
 
-    from ml.processor import get_sign_recognizer
     from app.services.ai_service import get_ai_service
 
-    recognizer = get_sign_recognizer()
     ai_service = get_ai_service()
+    detector = ai_service.detector
 
-    print(f"Model initialized: {recognizer._initialized}")
-    print(f"Recorder available: {recognizer.recorder is not None}")
+    print(f"SignDetectorManager initialized: {detector._initialized}")
+    print(
+        f"Handshape model loaded: {detector._handshape_recognizer is not None if detector._handshape_recognizer else False}"
+    )
+    print(
+        f"Fingerspelling model loaded: {detector._fingerspelling_recognizer is not None if detector._fingerspelling_recognizer else False}"
+    )
 
 
 app.include_router(auth.router)
