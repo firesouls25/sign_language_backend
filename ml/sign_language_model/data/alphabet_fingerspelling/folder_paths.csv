@@ -1,0 +1,2 @@
+train_folder,test_folder,new_image_path
+../input/asl-fingerspelling-alphabet-dataset/datasets/asl_alphabet_train,../input/asl-fingerspelling-alphabet-dataset/datasets/asl_alphabet_test,../input/asl-fingerspelling-alphabet-dataset/datasets/images-to-predict/new_image2.jpg
