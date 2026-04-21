@@ -120,6 +120,19 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                             {"type": "reset", "status": "ok"}, client_id
                         )
 
+                    elif msg_type == "finalize":
+                        logger.info(f"[WebSocket] Finalize requested by {client_id}")
+                        current_mode = manager.get_mode(client_id)
+                        result = await ai_service.finalize(
+                            mode=current_mode, user_id=manager.get_user_id(client_id)
+                        )
+                        logger.info(
+                            f"[WebSocket] Finalize result for {client_id}: "
+                            f"text='{result.get('text', '')}', "
+                            f"mode={current_mode}"
+                        )
+                        await manager.send_message(result, client_id)
+
                     elif msg_type == "set_mode":
                         mode = message.get("mode", "handshape")
                         manager.set_mode(client_id, mode)

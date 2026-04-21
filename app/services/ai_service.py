@@ -114,21 +114,25 @@ class AIService:
             raw_text = raw_result.get("text", "")
             candidate = raw_result.get("candidate", "")
             is_recording = raw_result.get("is_recording", False)
+            sequence = raw_result.get("sequence", "")
 
             if raw_text:
                 raw_text = raw_text.strip()
 
             normalized_text = raw_text
             if raw_text and len(raw_text) > 0:
-                normalized_text = self.normalizer.normalize(
-                    raw_text, mode, self.last_context
-                )
+                if mode == "fingerspelling":
+                    normalized_text = ""
+                else:
+                    normalized_text = self.normalizer.normalize(
+                        raw_text, mode, self.last_context
+                    )
 
-                if (
-                    normalized_text != "[entrada no reconocida]"
-                    and not normalized_text.startswith("[error")
-                ):
-                    self.last_context = normalized_text
+                    if (
+                        normalized_text != "[entrada no reconocida]"
+                        and not normalized_text.startswith("[error")
+                    ):
+                        self.last_context = normalized_text
 
             logger.info(
                 f"[AIService] Recognition: raw='{raw_text}', normalized='{normalized_text}', mode={mode}"
@@ -160,6 +164,7 @@ class AIService:
                 "candidate": candidate,
                 "candidate_confidence": raw_result.get("confidence", 0.0),
                 "mode": mode,
+                "sequence": sequence,
             }
 
             if audio_data:
@@ -181,6 +186,76 @@ class AIService:
         self.detector.reset_sequence()
         self.last_audio_text = ""
         self.last_context = ""
+
+    async def finalize(self, mode: str, user_id: Optional[str] = None) -> Dict:
+        """Finalize fingerspelling sequence and normalize with Groq."""
+        logger.info(f"[AIService] finalize called, mode: {mode}")
+
+        try:
+            sequence = ""
+            confidence = 0.0
+
+            if mode == "fingerspelling":
+                fingerspelling = self.detector._fingerspelling_recognizer
+                if fingerspelling and hasattr(fingerspelling, "letter_history"):
+                    sequence = "".join(fingerspelling.letter_history)
+                    logger.info(f"[AIService] Acquired sequence: '{sequence}'")
+
+                    if len(fingerspelling.letter_buffer) > 0:
+                        confidences = [
+                            c for _, c in fingerspelling.letter_buffer if c > 0
+                        ]
+                        if confidences:
+                            confidence = sum(confidences) / len(confidences)
+
+            logger.info(f"[AIService] Finalizing: sequence='{sequence}', mode={mode}")
+
+            normalized_text = sequence
+            if sequence and len(sequence) > 0:
+                normalized_text = self.normalizer.normalize(
+                    sequence, mode, self.last_context
+                )
+
+                if (
+                    normalized_text != "[entrada no reconocida]"
+                    and not normalized_text.startswith("[error")
+                ):
+                    self.last_context = normalized_text
+
+            logger.info(f"[AIService] Finalize result: normalized='{normalized_text}'")
+
+            audio_data = None
+            if (
+                normalized_text
+                and normalized_text != "[entrada no reconocidas]"
+                and not normalized_text.startswith("[error")
+            ):
+                audio_data = self.tts.text_to_speech(normalized_text)
+                self.last_audio_text = normalized_text
+
+            return {
+                "type": "translation",
+                "text": normalized_text
+                if not normalized_text.startswith("[error")
+                else "",
+                "confidence": confidence,
+                "has_keypoints": sequence is not None and len(sequence) > 0,
+                "phrase": normalized_text
+                if normalized_text and not normalized_text.startswith("[error")
+                else "",
+                "is_recording": False,
+                "candidate": "",
+                "candidate_confidence": confidence,
+                "mode": mode,
+                "is_finalized": True,
+            }
+
+        except Exception as e:
+            import traceback
+
+            logger.error(f"[AIService] Error in finalize: {e}")
+            logger.error(f"[AIService] Traceback: {traceback.format_exc()}")
+            return {"type": "error", "message": str(e), "code": "FINALIZE_ERROR"}
 
 
 ai_service = None
