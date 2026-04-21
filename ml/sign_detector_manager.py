@@ -208,6 +208,7 @@ class SignDetectorManager:
                 "confidence": result.get("confidence", 0.0),
                 "is_recording": result.get("is_recording", False),
                 "candidate": result.get("candidate", ""),
+                "sequence": result.get("sequence", ""),
             }
         except Exception as e:
             logger.error(

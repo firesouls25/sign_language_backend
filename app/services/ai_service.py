@@ -152,26 +152,16 @@ class AIService:
 
             response = {
                 "type": "translation",
-                "text": normalized_text
-                if not normalized_text.startswith("[error")
-                else "",
-                "confidence": raw_result.get("confidence", 0.0),
-                "has_keypoints": raw_text is not None and len(raw_text) > 0,
-                "phrase": normalized_text
-                if normalized_text and not normalized_text.startswith("[error")
-                else "",
-                "is_recording": is_recording,
-                "candidate": candidate,
-                "candidate_confidence": raw_result.get("confidence", 0.0),
+                "text": "",
+                "confidence": 0.0,
+                "has_keypoints": False,
+                "phrase": "",
+                "is_recording": True,
+                "candidate": "",
+                "candidate_confidence": 0.0,
                 "mode": mode,
-                "sequence": sequence,
+                "sequence": "",
             }
-
-            if audio_data:
-                response["audio"] = audio_data
-
-            if normalized_text and user_id and not normalized_text.startswith("[error"):
-                response["sign_detected"] = True
 
             return response
 
