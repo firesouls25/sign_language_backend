@@ -1,8 +1,52 @@
 import os
+import sys
 import logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# Try to import settings from app
+try:
+    # Add app directory to path
+    # ml/text_normalizer.py -> ml -> project root -> app
+    app_dir = os.path.join(os.path.dirname(__file__), "..", "app")
+    app_dir = os.path.abspath(app_dir)
+
+    # Ensure in path at beginning
+    if app_dir not in sys.path:
+        sys.path.insert(0, app_dir)
+    else:
+        sys.path.remove(app_dir)
+        sys.path.insert(0, app_dir)
+
+    logger.warning(f"[TextNormalizer] Trying to load settings from: {app_dir}")
+
+    # Import the SETTINGS CLASS, not the instance
+    from config import Settings
+
+    _settings = Settings()
+    LITELLM_MODEL = _settings.LITELLM_MODEL
+    GROQ_API_KEY = _settings.GROQ_API_KEY
+
+    logger.warning(
+        f"[TextNormalizer] Settings loaded - GROQ_API_KEY: {bool(GROQ_API_KEY)}"
+    )
+
+    # Verificar que se cargó correctamente
+    if not GROQ_API_KEY:
+        logger.warning(
+            "[TextNormalizer] GROQ_API_KEY empty in settings, trying os.getenv"
+        )
+        GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+        LITELLM_MODEL = os.getenv("LITELLM_MODEL", LITELLM_MODEL)
+except Exception as e:
+    logger.warning(f"[TextNormalizer] Could not load settings: {e}, using env vars")
+    LITELLM_MODEL = os.getenv("LITELLM_MODEL", "groq/llama-3.1-8b-instant")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+logger.warning(f"[TextNormalizer] GROQ_API_KEY loaded: {bool(GROQ_API_KEY)}")
+
+logger.warning(f"[TextNormalizer] GROQ_API_KEY loaded: {bool(GROQ_API_KEY)}")
 
 SYSTEM_PROMPT = """Eres el procesador de SignText, una app móvil de comunicación
 para personas con dificultades del habla. Recibes texto crudo generado por
@@ -98,9 +142,10 @@ class TextNormalizer:
         if self._initialized:
             return
 
-        self.model = os.getenv("LITELLM_MODEL", "groq/llama-3.1-8b-instant")
+        self.model = os.getenv("LITELLM_MODEL", LITELLM_MODEL)
         self._initialized = True
-        logger.info(f"[TextNormalizer] Initialized with model: {self.model}")
+        logger.warning(f"[TextNormalizer] Initialized with model: {self.model}")
+        logger.warning(f"[TextNormalizer] GROQ_API_KEY set: {bool(GROQ_API_KEY)}")
 
     def normalize(self, text: str, mode: str, context: str = "") -> str:
         """Normalize raw text to natural Spanish based on mode."""
@@ -118,6 +163,21 @@ class TextNormalizer:
             import litellm
             from litellm import completion
 
+            logger.warning(
+                f"[TextNormalizer] About to call completion with model={self.model}"
+            )
+
+            # Verificar API key
+            if not GROQ_API_KEY:
+                logger.error("[TextNormalizer] GROQ_API_KEY is EMPTY or NOT SET!")
+                return "[error: GROQ_API_KEY not configured]"
+
+            # Set API key para litellm
+            os.environ["GROQ_API_KEY"] = GROQ_API_KEY
+            logger.warning(
+                f"[TextNormalizer] GROQ_API_KEY configured: {GROQ_API_KEY[:10]}..."
+            )
+
             user_prompt = f'{{"mode": "{mode}", "input": "{text.strip()}", "context": "{context}"}}'
             logger.warning(f"[TextNormalizer] Sending to Groq: {user_prompt}")
 
@@ -131,6 +191,7 @@ class TextNormalizer:
                 temperature=0.1,
             )
 
+            logger.warning(f"[TextNormalizer] Response received: {response}")
             result = response.choices[0].message.content.strip()
             logger.warning(f"[TextNormalizer] Groq response: '{result}'")
 
@@ -142,6 +203,9 @@ class TextNormalizer:
 
         except Exception as e:
             logger.error(f"[TextNormalizer] Error normalizing text: {e}")
+            import traceback
+
+            logger.error(f"[TextNormalizer] Traceback: {traceback.format_exc()}")
             return f"[error: {str(e)[:50]}]"
 
 

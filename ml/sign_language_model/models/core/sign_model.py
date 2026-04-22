@@ -2,8 +2,8 @@ from typing import List, Optional
 
 import numpy as np
 
-from models.core.hand_model import HandModel
-from models.core.pose_model import PoseModel
+from .hand_model import HandModel
+from .pose_model import PoseModel
 
 
 class SignModel:

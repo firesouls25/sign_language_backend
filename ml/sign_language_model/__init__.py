@@ -1,10 +1,10 @@
-from .mediapipe import (
+from .models.mediapipe import (
     MediapipeHandDetector,
     MediapipePoseDetector,
     MediapipeHolisticDetector,
 )
-from .core import HandModel, SignModel, PoseModel
-from .recognizers import HandshapeRecognizer, FingerspellingRecognizer
+from .models.core import HandModel, SignModel, PoseModel
+from .models.recognizers import HandshapeRecognizer, FingerspellingRecognizer
 
 __all__ = [
     "MediapipeHandDetector",

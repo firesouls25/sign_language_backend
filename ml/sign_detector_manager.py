@@ -15,11 +15,29 @@ SIGN_LANGUAGE_MODEL_DIR = os.path.join(
 # Convert to absolute in case it's relative
 SIGN_LANGUAGE_MODEL_DIR = os.path.abspath(SIGN_LANGUAGE_MODEL_DIR)
 
-logger.info(f"[SignDetectorManager] Base dir: {os.path.dirname(_current_file)}")
-logger.info(f"[SignDetectorManager] SIGN_LANGUAGE_MODEL_DIR: {SIGN_LANGUAGE_MODEL_DIR}")
+logger.warning(f"[SignDetectorManager] Base dir: {os.path.dirname(_current_file)}")
+logger.warning(
+    f"[SignDetectorManager] SIGN_LANGUAGE_MODEL_DIR: {SIGN_LANGUAGE_MODEL_DIR}"
+)
 
-if SIGN_LANGUAGE_MODEL_DIR not in sys.path:
-    sys.path.insert(0, SIGN_LANGUAGE_MODEL_DIR)
+# Ensure in path AT THE BEGINNING - ALWAYS
+# First remove if exists
+while SIGN_LANGUAGE_MODEL_DIR in sys.path:
+    sys.path.remove(SIGN_LANGUAGE_MODEL_DIR)
+
+# Add at beginning
+sys.path.insert(0, SIGN_LANGUAGE_MODEL_DIR)
+
+# Also add parent ml directory
+ML_DIR = os.path.dirname(_current_file)
+while ML_DIR in sys.path:
+    sys.path.remove(ML_DIR)
+sys.path.insert(0, ML_DIR)
+
+logger.warning(f"[SignDetectorManager] sys.path[0]: {sys.path[0]}")
+logger.warning(
+    f"[SignDetectorManager] sys.path[1]: {sys.path[1] if len(sys.path) > 1 else 'N/A'}"
+)
 
 
 class SignDetectorManager:
@@ -52,39 +70,23 @@ class SignDetectorManager:
 
     def _load_models(self):
         """Load both models (lazy loading)"""
-        logger.info("[SignDetectorManager] Starting to load models...")
-        logger.info(
-            f"[SignDetectorManager] SIGN_LANGUAGE_MODEL_DIR: {SIGN_LANGUAGE_MODEL_DIR}"
-        )
+        logger.warning("[SignDetectorManager] Starting to load models...")
 
-        # Check directories
-        data_dir = os.path.join(SIGN_LANGUAGE_MODEL_DIR, "data", "reference")
-        logger.info(
-            f"[SignDetectorManager] Reference dir exists: {os.path.exists(data_dir)}"
-        )
-
-        if os.path.exists(data_dir):
-            for subdir in ["handshape", "fingerspelling"]:
-                subdir_path = os.path.join(data_dir, subdir)
-                logger.info(
-                    f"[SignDetectorManager] {subdir} dir exists: {os.path.exists(subdir_path)}"
-                )
-                if os.path.exists(subdir_path):
-                    files = os.listdir(subdir_path)
-                    logger.info(f"[SignDetectorManager] {subdir} files: {files}")
-
+        # Import and load handshape model
         try:
-            from models.recognizers.handshape_model import HandshapeRecognizer
+            from sign_language_model.models.recognizers.handshape_model import (
+                HandshapeRecognizer,
+            )
 
             handshape_path = os.path.join(
                 SIGN_LANGUAGE_MODEL_DIR, "data", "reference", "handshape"
             )
-            logger.info(
+            logger.warning(
                 f"[SignDetectorManager] Checking handshape at: {handshape_path}"
             )
             if os.path.exists(handshape_path):
                 self._handshape_recognizer = HandshapeRecognizer(handshape_path)
-                logger.info(
+                logger.warning(
                     f"[SignDetectorManager] Handshape model loaded, is_loaded: {self._handshape_recognizer.is_loaded}"
                 )
             else:
@@ -97,20 +99,23 @@ class SignDetectorManager:
 
             logger.error(f"[SignDetectorManager] Traceback: {traceback.format_exc()}")
 
+        # Import and load fingerspelling model
         try:
-            from models.recognizers.fingerspelling_model import FingerspellingRecognizer
+            from sign_language_model.models.recognizers.fingerspelling_model import (
+                FingerspellingRecognizer,
+            )
 
             fingerspelling_path = os.path.join(
                 SIGN_LANGUAGE_MODEL_DIR, "data", "reference", "fingerspelling"
             )
-            logger.info(
+            logger.warning(
                 f"[SignDetectorManager] Checking fingerspelling at: {fingerspelling_path}"
             )
             if os.path.exists(fingerspelling_path):
                 self._fingerspelling_recognizer = FingerspellingRecognizer(
                     fingerspelling_path
                 )
-                logger.info(
+                logger.warning(
                     f"[SignDetectorManager] Fingerspelling model loaded, is_loaded: {self._fingerspelling_recognizer.is_loaded}"
                 )
                 if not self._fingerspelling_recognizer.is_loaded:

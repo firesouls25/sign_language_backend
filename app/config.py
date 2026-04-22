@@ -1,8 +1,15 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+import os
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # Allow extra fields in .env
+    )
+
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/lsc_db"
     REDIS_URL: str = "redis://localhost:6379"
 
@@ -23,6 +30,14 @@ class Settings(BaseSettings):
     APPLE_KEY_ID: str = ""
     APPLE_PRIVATE_KEY: str = ""
 
+    # Groq / LiteLLM
+    GROQ_API_KEY: str = ""
+    LITELLM_MODEL: str = "groq/llama-3.1-8b-instant"
+
+    # Kaggle
+    KAGGLE_USERNAME: str = ""
+    KAGGLE_API_TOKEN: str = ""
+
     FRONTEND_URL: str = "http://localhost:5173"
     BACKEND_URL: str = "http://localhost:8000"
 
@@ -31,9 +46,6 @@ class Settings(BaseSettings):
     ENABLE_DEV_ROUTES: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-
-    class Config:
-        env_file = ".env"
 
 
 @lru_cache()

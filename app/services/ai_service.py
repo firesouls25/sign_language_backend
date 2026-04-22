@@ -159,15 +159,17 @@ class AIService:
 
             response = {
                 "type": "translation",
-                "text": "",
-                "confidence": 0.0,
-                "has_keypoints": False,
-                "phrase": "",
-                "is_recording": True,
-                "candidate": "",
-                "candidate_confidence": 0.0,
+                "text": raw_text,
+                "confidence": raw_result.get("confidence", 0.0),
+                "has_keypoints": (
+                    left_landmarks is not None or right_landmarks is not None
+                ),
+                "phrase": raw_text,
+                "is_recording": is_recording,
+                "candidate": candidate,
+                "candidate_confidence": raw_result.get("candidate_confidence", 0.0),
                 "mode": mode,
-                "sequence": "",
+                "sequence": sequence,
             }
 
             return response
