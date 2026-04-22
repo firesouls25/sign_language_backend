@@ -55,24 +55,61 @@ class FingerspellingRecognizer:
         self._load_model()
 
     def _load_model(self):
-        """Load sklearn or Keras model"""
-        # First try sklearn model (custom trained, higher priority)
-        sklearn_file = os.path.join(self.model_path, "model.joblib")
+        """Load Keras model (same as test script)"""
 
-        if os.path.exists(sklearn_file) and SKLEARN_AVAILABLE:
-            try:
-                logger.info(f"[FingerspellingRecognizer] Loading sklearn model from {sklearn_file}")
-                self.model, self.scaler = joblib.load(sklearn_file)
-                self.is_loaded = True
-                self.model_type = "sklearn"
-                logger.info(f"[FingerspellingRecognizer] SUCCESS: sklearn model loaded!")
-                return
-            except Exception as e:
-                logger.warning(f"[FingerspellingRecognizer] Failed to load sklearn: {e}")
-
-        # Fall back to TensorFlow/Keras model
+        # USAR KERAS PRIMERO (igual que script de prueba)
+        # Skip sklearn to use Keras with 63 features (x,y,z from 21 points)
         weights_file = os.path.join(self.model_path, "asl-now-weights.h5")
         keras_file = os.path.join(self.model_path, "asl-now.keras")
+
+        logger.info(f"[FingerspellingRecognizer] Attempting to load TensorFlow/Keras model")
+        logger.info(f"[FingerspellingRecognizer] TensorFlow available: {TF_AVAILABLE}")
+
+        if not TF_AVAILABLE:
+            self.load_error = "No models available"
+            logger.error("[FingerspellingRecognizer] Cannot load model: TensorFlow not available")
+            self.is_loaded = False
+            return
+
+        try:
+            # Cargar modelo Keras (exactamente igual que script de prueba)
+            if os.path.exists(weights_file):
+                logger.info(f"[FingerspellingRecognizer] Loading Keras weights from {weights_file}")
+                model = tf.keras.Sequential(
+                    [
+                        tf.keras.layers.Input(shape=(21, 3)),
+                        tf.keras.layers.Flatten(),
+                        tf.keras.layers.Dense(128, activation="relu"),
+                        tf.keras.layers.Dense(26, activation="softmax"),
+                    ]
+                )
+                model.load_weights(weights_file)
+                self.model = model
+                self.is_loaded = True
+                self.model_type = "tensorflow"
+                logger.info("[FingerspellingRecognizer] SUCCESS: TensorFlow Keras loaded!")
+                return
+            elif os.path.exists(keras_file):
+                logger.info(f"[FingerspellingRecognizer] Loading .keras model from {keras_file}")
+                self.model = tf.keras.models.load_model(keras_file)
+                self.is_loaded = True
+                self.model_type = "tensorflow"
+                logger.info("[FingerspellingRecognizer] SUCCESS: .keras model loaded!")
+                return
+            else:
+                self.load_error = "No weight files found"
+                logger.error(
+                    f"[FingerspellingRecognizer] No model files found in {self.model_path}"
+                )
+                self.is_loaded = False
+        except Exception as e:
+            self.load_error = str(e)
+            logger.error(f"[FingerspellingRecognizer] Failed to load Keras: {e}")
+            self.is_loaded = False
+
+        # OLD: sklearn loading commented out (was using 42 features, wrong for frontend)
+        # sklearn was causing "T" predictions because it expects 42 features (x,y only)
+        # but frontend sends 63 features (x,y,z)
 
         logger.info(
             f"[FingerspellingRecognizer] Attempting to load TensorFlow model from: {self.model_path}"
