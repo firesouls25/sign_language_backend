@@ -104,7 +104,14 @@ class TextNormalizer:
 
     def normalize(self, text: str, mode: str, context: str = "") -> str:
         """Normalize raw text to natural Spanish based on mode."""
+        logger.warning(
+            f"[TextNormalizer] normalize() called with text='{text}', mode='{mode}'"
+        )
+
         if not text or not text.strip():
+            logger.warning(
+                f"[TextNormalizer] Empty text, returning '[entrada no reconocidas]'"
+            )
             return "[entrada no reconocida]"
 
         try:
@@ -112,6 +119,7 @@ class TextNormalizer:
             from litellm import completion
 
             user_prompt = f'{{"mode": "{mode}", "input": "{text.strip()}", "context": "{context}"}}'
+            logger.warning(f"[TextNormalizer] Sending to Groq: {user_prompt}")
 
             response = completion(
                 model=self.model,
@@ -124,8 +132,11 @@ class TextNormalizer:
             )
 
             result = response.choices[0].message.content.strip()
+            logger.warning(f"[TextNormalizer] Groq response: '{result}'")
 
-            logger.info(f"[TextNormalizer] Normalized '{text}' ({mode}) -> '{result}'")
+            logger.warning(
+                f"[TextNormalizer] Normalized '{text}' ({mode}) -> '{result}'"
+            )
 
             return result
 

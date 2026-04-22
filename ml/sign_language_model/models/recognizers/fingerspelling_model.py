@@ -221,20 +221,28 @@ class FingerspellingRecognizer:
                     if c >= self.confidence_threshold:
                         letter_counts[l] = letter_counts.get(l, 0) + 1
 
+                logger.warning(f"[Fingerspelling] letter_buffer: {list(self.letter_buffer)}")
+                logger.warning(f"[Fingerspelling] letter_counts: {letter_counts}")
+
                 if letter_counts:
                     best_letter = max(letter_counts, key=letter_counts.get)
-                    logger.info(
-                        f"[FingerspellingRecognizer] Best letter from buffer: {best_letter}"
+                    logger.warning(
+                        f"[FingerspellingRecognizer] Best letter from buffer: {best_letter} (count={letter_counts[best_letter]})"
                     )
 
                     now = datetime.now()
-                    if (
-                        best_letter != self.last_letter
-                        or (now - self.last_detection_time) > self.cooldown
-                    ):
+                    time_diff = (now - self.last_detection_time).total_seconds()
+                    logger.warning(
+                        f"[Fingerspelling] time_diff: {time_diff}s, cooldown: {self.cooldown.total_seconds()}s"
+                    )
+
+                    if best_letter != self.last_letter or time_diff > self.cooldown.total_seconds():
                         self.last_letter = best_letter
                         self.last_detection_time = now
                         self.letter_history.append(best_letter)
+                        logger.warning(
+                            f"[Fingerspelling] LETTER ADDED: {best_letter}, history: {self.letter_history}"
+                        )
 
                         return {
                             "text": "",

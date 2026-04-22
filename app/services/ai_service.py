@@ -106,15 +106,22 @@ class AIService:
                 left_landmarks, right_landmarks
             )
 
-            logger.info(
+            logger.warning(
                 f"[AIService] raw_result keys: {raw_result.keys() if raw_result else 'None'}"
             )
-            logger.info(f"[AIService] raw_result: {raw_result}")
+            logger.warning(f"[AIService] raw_result: {raw_result}")
 
             raw_text = raw_result.get("text", "")
             candidate = raw_result.get("candidate", "")
             is_recording = raw_result.get("is_recording", False)
             sequence = raw_result.get("sequence", "")
+
+            logger.warning(
+                f"[AIService] fingerspell - raw_text='{raw_text}', candidate='{candidate}', sequence='{sequence}', is_recording={is_recording}"
+            )
+
+            if candidate:
+                logger.warning(f"[AIService] LETTER DETECTED: {candidate}")
 
             if raw_text:
                 raw_text = raw_text.strip()
@@ -179,7 +186,10 @@ class AIService:
 
     async def finalize(self, mode: str, user_id: Optional[str] = None) -> Dict:
         """Finalize fingerspelling sequence and normalize with Groq."""
-        logger.info(f"[AIService] finalize called, mode: {mode}")
+        logger.warning(
+            f"[AIService] ================= FINALIZE CALLED ================="
+        )
+        logger.warning(f"[AIService] finalize called, mode: {mode}")
 
         try:
             sequence = ""
@@ -187,24 +197,43 @@ class AIService:
 
             if mode == "fingerspelling":
                 fingerspelling = self.detector._fingerspelling_recognizer
-                if fingerspelling and hasattr(fingerspelling, "letter_history"):
-                    sequence = "".join(fingerspelling.letter_history)
-                    logger.info(f"[AIService] Acquired sequence: '{sequence}'")
+                logger.warning(
+                    f"[AIService] fingerspelling recognizer: {fingerspelling}"
+                )
 
-                    if len(fingerspelling.letter_buffer) > 0:
-                        confidences = [
-                            c for _, c in fingerspelling.letter_buffer if c > 0
-                        ]
-                        if confidences:
-                            confidence = sum(confidences) / len(confidences)
+                if fingerspelling:
+                    logger.warning(
+                        f"[AIService] letter_history: {getattr(fingerspelling, 'letter_history', [])}"
+                    )
+                    logger.warning(
+                        f"[AIService] letter_buffer: {getattr(fingerspelling, 'letter_buffer', [])}"
+                    )
 
-            logger.info(f"[AIService] Finalizing: sequence='{sequence}', mode={mode}")
+                    if hasattr(fingerspelling, "letter_history"):
+                        sequence = "".join(fingerspelling.letter_history)
+                        logger.warning(f"[AIService] Acquired sequence: '{sequence}'")
+
+                        if len(fingerspelling.letter_buffer) > 0:
+                            confidences = [
+                                c for _, c in fingerspelling.letter_buffer if c > 0
+                            ]
+                            if confidences:
+                                confidence = sum(confidences) / len(confidences)
+                                logger.warning(
+                                    f"[AIService] Average confidence: {confidence}"
+                                )
+
+            logger.warning(
+                f"[AIService] Finalizing: sequence='{sequence}', mode={mode}"
+            )
 
             normalized_text = sequence
             if sequence and len(sequence) > 0:
+                logger.warning(f"[AIService] Calling Groq with sequence: '{sequence}'")
                 normalized_text = self.normalizer.normalize(
                     sequence, mode, self.last_context
                 )
+                logger.warning(f"[AIService] Groq returned: '{normalized_text}'")
 
                 if (
                     normalized_text != "[entrada no reconocida]"
@@ -212,7 +241,12 @@ class AIService:
                 ):
                     self.last_context = normalized_text
 
-            logger.info(f"[AIService] Finalize result: normalized='{normalized_text}'")
+            logger.warning(
+                f"[AIService] Finalize result: normalized='{normalized_text}'"
+            )
+            logger.warning(
+                f"[AIService] ================= END FINALIZE ================="
+            )
 
             audio_data = None
             if (
