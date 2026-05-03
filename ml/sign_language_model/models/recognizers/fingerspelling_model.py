@@ -49,7 +49,7 @@ class FingerspellingRecognizer:
         self.last_letter = ""
         self.last_detection_time = datetime.min
         self.cooldown = timedelta(seconds=0.3)
-        self.confidence_threshold = 0.15  # Lowered for mobile use
+        self.confidence_threshold = 0.3  # Same as test scripts for consistency
         self.letter_history = []
 
         self._load_model()

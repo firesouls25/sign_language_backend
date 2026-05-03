@@ -182,6 +182,37 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                         )
                         await manager.send_message(result, client_id)
 
+                    elif msg_type == "frame":
+                        frame_data = message.get("data", [])
+                        width = message.get("width", 0)
+                        height = message.get("height", 0)
+                        current_mode = message.get("mode", manager.get_mode(client_id))
+
+                        if current_mode != manager.get_mode(client_id):
+                            manager.set_mode(client_id, current_mode)
+                            ai_service.set_mode(current_mode)
+
+                        logger.info(
+                            f"[WebSocket] Received frame from {client_id}: "
+                            f"size={len(frame_data)} bytes, {width}x{height}, mode={current_mode}"
+                        )
+                        current_user_id = manager.get_user_id(client_id)
+
+                        result = await ai_service.process_frame(
+                            frame_data,
+                            width=width,
+                            height=height,
+                            mode=current_mode,
+                            user_id=current_user_id,
+                        )
+
+                        logger.info(
+                            f"[WebSocket] Frame recognition result for {client_id}: "
+                            f"text='{result.get('text', '')}', "
+                            f"confidence={result.get('confidence', 0.0):.2f}"
+                        )
+                        await manager.send_message(result, client_id)
+
                     else:
                         logger.warning(f"[WebSocket] Unknown message type: {msg_type}")
 

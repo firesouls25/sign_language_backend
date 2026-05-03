@@ -1,7 +1,9 @@
 from typing import Dict, Optional
 import logging
+import numpy as np
 from ml.sign_detector_manager import get_sign_detector_manager
 from ml.text_normalizer import get_text_normalizer
+from ml.processor import get_keypoint_extractor
 from app.services.tts_service import get_tts_service
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,13 @@ class AIService:
             )
             logger.info(
                 f"[AIService] right_hand type: {type(right_landmarks_data)}, is list: {isinstance(right_landmarks_data, list)}"
+            )
+
+            # Validar datos directamente - NO aplicar espejo
+            # Los landmarks del móvil ya vienen en formato MediaPipe estándar
+            left_landmarks_data, right_landmarks_data = (
+                left_landmarks_data,
+                right_landmarks_data,
             )
 
             # Validate data format before passing to model
@@ -181,6 +190,71 @@ class AIService:
             logger.error(f"[AIService] Traceback: {traceback.format_exc()}")
             return {"type": "error", "message": str(e), "code": "LANDMARKS_ERROR"}
 
+    async def process_frame(
+        self,
+        frame_data: list,
+        width: int,
+        height: int,
+        mode: str,
+        user_id: Optional[str] = None,
+    ) -> Dict:
+        """Process a raw frame by extracting landmarks then processing them."""
+        try:
+            if mode != self.current_mode:
+                self.set_mode(mode)
+
+            logger.info(f"[AIService] Processing frame, mode: {mode}")
+
+            if not frame_data or width == 0 or height == 0:
+                logger.warning("[AIService] Empty frame data received")
+                return {
+                    "type": "translation",
+                    "text": "",
+                    "confidence": 0.0,
+                    "has_keypoints": False,
+                    "phrase": "",
+                    "is_recording": False,
+                    "candidate": "",
+                    "candidate_confidence": 0.0,
+                    "mode": mode,
+                    "sequence": "",
+                }
+
+            frame_array = np.array(frame_data, dtype=np.uint8)
+            if len(frame_array) != width * height * 3:
+                logger.error(
+                    f"[AIService] Frame data size mismatch: expected {width * height * 3}, got {len(frame_array)}"
+                )
+                return {
+                    "type": "error",
+                    "message": "Frame size mismatch",
+                    "code": "FRAME_SIZE_ERROR",
+                }
+
+            frame = frame_array.reshape((height, width, 3))
+
+            keypoint_extractor = get_keypoint_extractor()
+            keypoints = keypoint_extractor.extract_keypoints(frame)
+
+            landmarks = {
+                "left_hand": keypoints.get("left_hand"),
+                "right_hand": keypoints.get("right_hand"),
+            }
+
+            logger.info(
+                f"[AIService] Frame extracted: left={len(landmarks['left_hand']) if landmarks['left_hand'] else 0} points, "
+                f"right={len(landmarks['right_hand']) if landmarks['right_hand'] else 0} points"
+            )
+
+            return await self.process_landmarks(landmarks, mode=mode, user_id=user_id)
+
+        except Exception as e:
+            import traceback
+
+            logger.error(f"[AIService] Error processing frame: {e}")
+            logger.error(f"[AIService] Traceback: {traceback.format_exc()}")
+            return {"type": "error", "message": str(e), "code": "FRAME_ERROR"}
+
     def reset(self):
         self.detector.reset_sequence()
         self.last_audio_text = ""
@@ -282,6 +356,24 @@ class AIService:
             logger.error(f"[AIService] Error in finalize: {e}")
             logger.error(f"[AIService] Traceback: {traceback.format_exc()}")
             return {"type": "error", "message": str(e), "code": "FINALIZE_ERROR"}
+
+
+def _mirror_landmarks(left_landmarks, right_landmarks):
+    """
+    Mirror landmarks and swap handedness to match Python scripts behavior.
+    Python scripts use cv2.flip(frame, 1) before MediaPipe detection.
+    This function mirrors the x-coordinates and swaps left/right labels.
+    """
+
+    def _flip_and_swap(data):
+        if data and isinstance(data, list) and len(data) >= 21:
+            return [
+                [1.0 - pt[0], pt[1], pt[2] if len(pt) > 2 else 0.0] for pt in data[:21]
+            ]
+        return None
+
+    # Swap left and right, flip x-coordinates
+    return _flip_and_swap(right_landmarks), _flip_and_swap(left_landmarks)
 
 
 ai_service = None

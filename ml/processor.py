@@ -49,6 +49,9 @@ class KeypointExtractor:
             return {"hands": [], "pose": None, "face": None, "frame_shape": frame.shape}
 
         try:
+            # Flip frame horizontally (same as test scripts) to mirror the image
+            frame = cv2.flip(frame, 1)
+
             results = self._detector.detect(frame)
             return {
                 "left_hand": results.get("left_hand"),
