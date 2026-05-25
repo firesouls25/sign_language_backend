@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from app.api.routes import auth, translation, contacts, conversations, users
 from app.api.routes.websocket import websocket_endpoint
+from app.api.routes.signal import handle_signal_websocket
 from app.config import settings
 from app.database import init_db
 
@@ -68,6 +69,15 @@ if settings.ENABLE_DEV_ROUTES:
 @app.websocket("/ws/translate")
 async def websocket_route(websocket: WebSocket, token: str = Query(None)):
     await websocket_endpoint(websocket, token)
+
+
+@app.websocket("/ws/signal/{conversation_id}")
+async def signal_websocket_route(
+    websocket: WebSocket,
+    conversation_id: str,
+    token: str = Query(None),
+):
+    await handle_signal_websocket(websocket, conversation_id, token)
 
 
 @app.get("/health")
