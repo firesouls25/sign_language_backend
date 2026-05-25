@@ -118,3 +118,17 @@ async def send_message(
             detail="Not a participant in this conversation",
         )
     return msg
+
+
+@router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    success = await ChatService.delete_conversation(db, conversation_id, user_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found or not a participant",
+        )

@@ -229,3 +229,24 @@ class ChatService:
         )
         result = await db.execute(stmt)
         return result.scalars().all()
+
+    @staticmethod
+    async def delete_conversation(
+        db: AsyncSession, conversation_id: str, user_id: str
+    ) -> bool:
+        result = await db.execute(
+            select(Conversation).where(Conversation.id == conversation_id)
+        )
+        conv = result.scalar_one_or_none()
+        if not conv:
+            return False
+        if not conv.is_participant(user_id):
+            return False
+        await db.execute(
+            Message.__table__.delete().where(
+                Message.conversation_id == conversation_id
+            )
+        )
+        await db.delete(conv)
+        await db.commit()
+        return True
