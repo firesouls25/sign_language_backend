@@ -1,8 +1,9 @@
 import os
 from fastapi import FastAPI, WebSocket, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from app.api.routes import auth, translation
+from app.api.routes import auth, translation, contacts, conversations, users
 from app.api.routes.websocket import websocket_endpoint
 from app.config import settings
 from app.database import init_db
@@ -13,6 +14,12 @@ app = FastAPI(
     version="1.0.0",
     debug=settings.DEBUG,
 )
+
+# Serve uploaded files
+if os.path.exists(settings.UPLOAD_DIR):
+    app.mount(
+        "/api/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
+    )
 
 app.add_middleware(
     SessionMiddleware,
@@ -48,6 +55,9 @@ async def startup_event():
 
 app.include_router(auth.router)
 app.include_router(translation.router)
+app.include_router(contacts.router)
+app.include_router(conversations.router)
+app.include_router(users.router)
 
 if settings.ENABLE_DEV_ROUTES:
     from app.api.routes import dev

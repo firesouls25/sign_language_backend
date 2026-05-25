@@ -8,6 +8,7 @@ class Translation(Base):
 
     id = Column(String, primary_key=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    conversation_id = Column(String, ForeignKey("conversations.id"), nullable=True)
     video_url = Column(String, nullable=True)
     text_result = Column(String, nullable=False)
     audio_url = Column(String, nullable=True)

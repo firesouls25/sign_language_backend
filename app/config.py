@@ -40,6 +40,7 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: str = "http://localhost:5173"
     BACKEND_URL: str = "http://localhost:8000"
+    UPLOADS_URL: str = "http://localhost:8000"
 
     APP_ENV: str = "development"
     DEBUG: bool = True

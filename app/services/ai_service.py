@@ -155,20 +155,13 @@ class AIService:
             )
 
             audio_data = None
-            if (
-                normalized_text
-                and normalized_text != "[entrada no reconocida]"
-                and normalized_text != self.last_audio_text
-            ):
-                if not normalized_text.startswith("[error"):
-                    audio_data = self.tts.text_to_speech(normalized_text)
-                    self.last_audio_text = normalized_text
-            elif not normalized_text or normalized_text == "[entrada no reconocida]":
-                self.last_audio_text = ""
+            # No generamos audio en backend - el frontend usa flutter_tts
+            logger.info(f"[AIService] TTS skipped - frontend handles it")
 
             response = {
                 "type": "translation",
                 "text": raw_text,
+                "audio": audio_data,
                 "confidence": raw_result.get("confidence", 0.0),
                 "has_keypoints": (
                     left_landmarks is not None or right_landmarks is not None
@@ -268,6 +261,8 @@ class AIService:
         logger.warning(f"[AIService] finalize called, mode: {mode}")
 
         try:
+            logger.warning(f"[AIService] finalize called, mode: {mode}")
+
             sequence = ""
             confidence = 0.0
 
@@ -320,24 +315,23 @@ class AIService:
             logger.warning(
                 f"[AIService] Finalize result: normalized='{normalized_text}'"
             )
+
             logger.warning(
                 f"[AIService] ================= END FINALIZE ================="
             )
 
             audio_data = None
-            if (
-                normalized_text
-                and normalized_text != "[entrada no reconocidas]"
-                and not normalized_text.startswith("[error")
-            ):
-                audio_data = self.tts.text_to_speech(normalized_text)
-                self.last_audio_text = normalized_text
+            # No generamos audio en backend - el frontend usa flutter_tts
+            logger.info(
+                f"[AIService] Finalize - Text ready for TTS: '{normalized_text}'"
+            )
 
             return {
                 "type": "translation",
                 "text": normalized_text
                 if not normalized_text.startswith("[error")
                 else "",
+                "audio": audio_data,
                 "confidence": confidence,
                 "has_keypoints": sequence is not None and len(sequence) > 0,
                 "phrase": normalized_text

@@ -13,6 +13,7 @@ class StorageService:
         self.bucket_name = settings.GCS_BUCKET_NAME
         self.client = None
         self.bucket = None
+        self.uploads_url = getattr(settings, "UPLOADS_URL", settings.BACKEND_URL)
 
         if settings.GOOGLE_APPLICATION_CREDENTIALS:
             try:
@@ -41,8 +42,8 @@ class StorageService:
                 with open(file_path, "wb") as f:
                     f.write(file_data)
 
-                # Return a relative URL that will be served by FastAPI
-                return f"/api/uploads/{unique_filename}"
+                # Return an absolute URL
+                return f"{self.uploads_url}/api/uploads/{unique_filename}"
 
         except Exception as e:
             logger.error(f"Upload error: {e}")
