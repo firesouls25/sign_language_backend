@@ -46,8 +46,6 @@ except Exception as e:
 
 logger.warning(f"[TextNormalizer] GROQ_API_KEY loaded: {bool(GROQ_API_KEY)}")
 
-logger.warning(f"[TextNormalizer] GROQ_API_KEY loaded: {bool(GROQ_API_KEY)}")
-
 SYSTEM_PROMPT = """Eres el procesador de SignText, una app móvil de comunicación
 para personas con dificultades del habla. Recibes texto crudo generado por
 dos modos de entrada gestual y debes convertirlo en español natural y fluido.
@@ -147,7 +145,7 @@ class TextNormalizer:
         logger.warning(f"[TextNormalizer] Initialized with model: {self.model}")
         logger.warning(f"[TextNormalizer] GROQ_API_KEY set: {bool(GROQ_API_KEY)}")
 
-    def normalize(self, text: str, mode: str, context: str = "") -> str:
+    async def normalize(self, text: str, mode: str, context: str = "") -> str:
         """Normalize raw text to natural Spanish based on mode."""
         logger.warning(
             f"[TextNormalizer] normalize() called with text='{text}', mode='{mode}'"
@@ -161,7 +159,7 @@ class TextNormalizer:
 
         try:
             import litellm
-            from litellm import completion
+            from litellm import acompletion
 
             logger.warning(
                 f"[TextNormalizer] About to call completion with model={self.model}"
@@ -181,7 +179,7 @@ class TextNormalizer:
             user_prompt = f'{{"mode": "{mode}", "input": "{text.strip()}", "context": "{context}"}}'
             logger.warning(f"[TextNormalizer] Sending to Groq: {user_prompt}")
 
-            response = completion(
+            response = await acompletion(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},

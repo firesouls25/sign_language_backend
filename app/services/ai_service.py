@@ -140,7 +140,7 @@ class AIService:
                 if mode == "fingerspelling":
                     normalized_text = ""
                 else:
-                    normalized_text = self.normalizer.normalize(
+                    normalized_text = await self.normalizer.normalize(
                         raw_text, mode, self.last_context
                     )
 
@@ -301,7 +301,7 @@ class AIService:
             normalized_text = sequence
             if sequence and len(sequence) > 0:
                 logger.warning(f"[AIService] Calling Groq with sequence: '{sequence}'")
-                normalized_text = self.normalizer.normalize(
+                normalized_text = await self.normalizer.normalize(
                     sequence, mode, self.last_context
                 )
                 logger.warning(f"[AIService] Groq returned: '{normalized_text}'")

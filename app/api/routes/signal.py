@@ -23,12 +23,18 @@ async def handle_signal_websocket(
         payload = decode_token(token)
         if payload and payload.get("type") == "access":
             user_id = payload.get("sub")
+        else:
+            logger.warning(f"[SignalWS] Token decode failed or not access type. payload={payload}")
+    else:
+        logger.warning("[SignalWS] No token provided")
 
     if not user_id:
+        logger.warning(f"[SignalWS] Invalid or missing token for conversation {conversation_id}")
         await websocket.close(code=4001, reason="Invalid or missing token")
         return
 
     if not DB_AVAILABLE:
+        logger.warning("[SignalWS] Database not available")
         await websocket.close(code=4001, reason="Database not available")
         return
 
@@ -41,7 +47,13 @@ async def handle_signal_websocket(
         )
         conv = conv_result.scalar_one_or_none()
 
-        if not conv or not conv.is_participant(user_id):
+        if not conv:
+            logger.warning(f"[SignalWS] Conversation {conversation_id} not found")
+            await websocket.close(code=4003, reason="Conversation not found")
+            return
+
+        if not conv.is_participant(user_id):
+            logger.warning(f"[SignalWS] User {user_id} is not a participant in conversation {conversation_id}")
             await websocket.close(code=4003, reason="Not a participant in this conversation")
             return
 
@@ -51,6 +63,7 @@ async def handle_signal_websocket(
             username = user.username
 
     await websocket.accept()
+    logger.info(f"[SignalWS] WebSocket accepted for user {user_id} in conversation {conversation_id}")
 
     participants = await room_manager.join_room(conversation_id, user_id, websocket)
 
@@ -109,6 +122,33 @@ async def handle_signal_websocket(
                     await room_manager.relay_to(
                         conversation_id, user_id, target_id,
                         {"type": "ice_candidate", "from_id": user_id, "candidate": data.get("candidate")},
+                    )
+
+                elif msg_type == "call_request":
+                    target_id = data.get("target_id")
+                    if not target_id:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Missing target_id",
+                        })
+                        continue
+                    await room_manager.relay_to(
+                        conversation_id, user_id, target_id,
+                        {"type": "call_request", "from_id": user_id, "from_username": username},
+                    )
+
+                elif msg_type == "call_response":
+                    target_id = data.get("target_id")
+                    if not target_id:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Missing target_id",
+                        })
+                        continue
+                    accepted = data.get("accepted", False)
+                    await room_manager.relay_to(
+                        conversation_id, user_id, target_id,
+                        {"type": "call_response", "from_id": user_id, "accepted": accepted},
                     )
 
                 elif msg_type == "translation":

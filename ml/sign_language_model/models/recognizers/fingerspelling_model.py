@@ -10,16 +10,6 @@ logger = logging.getLogger(__name__)
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 LABEL_MAP = {i: letter for i, letter in enumerate(ALPHABET)}
 
-# Import TensorFlow at module level
-try:
-    import tensorflow as tf
-
-    TF_AVAILABLE = True
-    logger.info(f"[FingerspellingRecognizer] TensorFlow version: {tf.__version__}")
-except ImportError as e:
-    TF_AVAILABLE = False
-    logger.error(f"[FingerspellingRecognizer] TensorFlow not available: {e}")
-
 # Import sklearn for custom model
 try:
     import joblib
@@ -55,24 +45,22 @@ class FingerspellingRecognizer:
         self._load_model()
 
     def _load_model(self):
-        """Load Keras model (same as test script)"""
-
-        # USAR KERAS PRIMERO (igual que script de prueba)
-        # Skip sklearn to use Keras with 63 features (x,y,z from 21 points)
+        """Load Keras model - imports TensorFlow lazily to save memory."""
         weights_file = os.path.join(self.model_path, "asl-now-weights.h5")
         keras_file = os.path.join(self.model_path, "asl-now.keras")
 
         logger.info(f"[FingerspellingRecognizer] Attempting to load TensorFlow/Keras model")
-        logger.info(f"[FingerspellingRecognizer] TensorFlow available: {TF_AVAILABLE}")
 
-        if not TF_AVAILABLE:
-            self.load_error = "No models available"
+        # Lazy import TensorFlow - saves ~200-400MB RAM when TF isn't needed
+        try:
+            import tensorflow as tf
+        except ImportError:
+            self.load_error = "TensorFlow not available"
             logger.error("[FingerspellingRecognizer] Cannot load model: TensorFlow not available")
             self.is_loaded = False
             return
 
         try:
-            # Cargar modelo Keras (exactamente igual que script de prueba)
             if os.path.exists(weights_file):
                 logger.info(f"[FingerspellingRecognizer] Loading Keras weights from {weights_file}")
                 model = tf.keras.Sequential(
@@ -97,62 +85,11 @@ class FingerspellingRecognizer:
                 logger.info("[FingerspellingRecognizer] SUCCESS: .keras model loaded!")
                 return
             else:
-                self.load_error = "No weight files found"
-                logger.error(
-                    f"[FingerspellingRecognizer] No model files found in {self.model_path}"
-                )
-                self.is_loaded = False
+                self.load_error = f"No model file found at {self.model_path}"
+                logger.error(f"[FingerspellingRecognizer] No model files found")
         except Exception as e:
             self.load_error = str(e)
             logger.error(f"[FingerspellingRecognizer] Failed to load Keras: {e}")
-            self.is_loaded = False
-
-        # OLD: sklearn loading commented out (was using 42 features, wrong for frontend)
-        # sklearn was causing "T" predictions because it expects 42 features (x,y only)
-        # but frontend sends 63 features (x,y,z)
-
-        logger.info(
-            f"[FingerspellingRecognizer] Attempting to load TensorFlow model from: {self.model_path}"
-        )
-        logger.info(f"[FingerspellingRecognizer] TensorFlow available: {TF_AVAILABLE}")
-
-        if not TF_AVAILABLE:
-            self.load_error = "No models available"
-            logger.error(f"[FingerspellingRecognizer] Cannot load model: TensorFlow not available")
-            self.is_loaded = False
-            return
-
-        try:
-            if os.path.exists(weights_file):
-                logger.info(f"[FingerspellingRecognizer] Loading weights from {weights_file}")
-                model = tf.keras.Sequential(
-                    [
-                        tf.keras.layers.Input(shape=(21, 3)),
-                        tf.keras.layers.Flatten(),
-                        tf.keras.layers.Dense(128, activation="relu"),
-                        tf.keras.layers.Dense(26, activation="softmax"),
-                    ]
-                )
-                model.load_weights(weights_file)
-                self.model = model
-                self.is_loaded = True
-                self.model_type = "tensorflow"
-                logger.info(f"[FingerspellingRecognizer] SUCCESS: TensorFlow model loaded!")
-                return
-            elif os.path.exists(keras_file):
-                logger.info(f"[FingerspellingRecognizer] Loading from keras file: {keras_file}")
-                self.model = tf.keras.models.load_model(keras_file)
-                self.is_loaded = True
-                self.model_type = "tensorflow"
-                logger.info(f"[FingerspellingRecognizer] SUCCESS: keras file loaded!")
-                return
-            else:
-                self.load_error = f"No model file found at {self.model_path}"
-                logger.error(f"[FingerspellingRecognizer] No model files found")
-
-        except Exception as e:
-            self.load_error = str(e)
-            logger.error(f"[FingerspellingRecognizer] Exception loading model: {e}")
 
         logger.warning(f"[FingerspellingRecognizer] Model loading failed")
         self.is_loaded = False
